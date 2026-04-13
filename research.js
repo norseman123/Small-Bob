@@ -1,43 +1,40 @@
+// research.js - Progression Update
+
 export const TECH_TREE = {
-    automation_1: {
-        title: "Basic Automation",
-        cost: 20, // Science points
+    science_automation: {
+        title: "Science: Automation",
+        cost: { raw_matter: 20 }, // Cost is raw items, not science points!
+        icon: "🧪",
         unlocked: false,
-        requirements: [],
-        desc: "Unlocks the Assembler and Conveyor Belts.",
-        onUnlock: (state) => {
-            console.log("Automation Unlocked!");
-            // Logic to show hidden buttons in index.html
-        }
+        desc: "Automate raw matter research. Unlock the basic Lab building."
     },
-    green_energy: {
-        title: "High-Efficiency Solar",
-        cost: 50,
+    complex_manufacturing: {
+        title: "Advanced Manufacturing",
+        cost: { logic_circuit: 100 },
+        icon: "⚙️",
         unlocked: false,
-        requirements: ["automation_1"],
-        desc: "Solar panels now generate 50% more power.",
-        onUnlock: (state) => {
-            state.modifiers.solarEfficiency = 1.5;
-        }
-    },
-    advanced_mining: {
-        title: "Hyper-Threading Miners",
-        cost: 150,
-        unlocked: false,
-        requirements: ["green_energy"],
-        desc: "Miners extract data twice as fast.",
-        onUnlock: (state) => {
-            state.modifiers.minerSpeed = 2.0;
-        }
-    },
-    fabrication_socks: {
-        title: "Industrial Sock Weaving",
-        cost: 500,
-        unlocked: false,
-        requirements: ["advanced_mining"],
-        desc: "Unlocks the Sock Fabricator. High profit potential.",
-        onUnlock: (state) => {
-             // Unlock advanced building type
-        }
+        requirements: ["science_automation"],
+        desc: "Unlock Assembler Mk1 and splitters."
     }
 };
+
+// Call this from game.js whenever research points are added
+export function checkResearchUnlock(state) {
+    // Current goal is the first uncompleted tech
+    const currentGoalKey = Object.keys(TECH_TREE).find(key => !TECH_TREE[key].unlocked);
+    if (!currentGoalKey) return null; // All done!
+
+    const goal = TECH_TREE[currentGoalKey];
+    
+    // Check if the state has enough science points (science points are now abstract)
+    // For this complex loop, we'll keep a temporary abstract counter
+    if (state.science >= goal.cost_abstract) {
+        goal.unlocked = true;
+        // Apply unlocks:
+        if (currentGoalKey === 'science_automation') {
+             // Unlock 'lab' button in HTML
+        }
+        return goal.title;
+    }
+    return null;
+}
