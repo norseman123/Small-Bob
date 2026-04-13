@@ -1,1 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web-Factory: Refactored</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="ui-layer">
+        <div id="top-bar">
+            <div class="stat">💰 Cash: $<span id="cash">100</span></div>
+            <div class="stat">⚡ Power: <span id="power">0</span>/10kW</div>
+            <div class="stat">🧪 Science: <span id="science">0</span></div>
+        </div>
+        
+        <div id="build-menu">
+            <button class="tool" data-type="belt"><span>➡</span> Belt</button>
+            <button class="tool" data-type="miner"><span>⛏</span> Miner</button>
+            <button class="tool" data-type="assembler"><span>⚙</span> Assembler</button>
+            <button class="tool" data-type="lab"><span>🧪</span> Lab</button>
+            <button class="tool" data-type="solar"><span>☀️</span> Solar</button>
+        </div>
+    </div>
 
+    <canvas id="gameCanvas"></canvas>
+
+    <script src="game.js" type="module"></script>
+</body>
+</html>
