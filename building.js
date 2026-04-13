@@ -1,74 +1,88 @@
-export const BUILDINGS = {
-    // POWER GENERATION
-    solar_panel: {
-        name: "Solar Array",
-        icon: "☀️",
-        cost: { cash: 25 },
-        powerGen: 10,
-        desc: "Generates clean energy from the browser's light.",
-        update: (node, state) => { /* Passive */ }
-    },
+// buildings.js - Logistics Update
 
+export const ITEMS = {
+    raw_matter: { name: "Raw Web-Matter", color: "#00d4ff" }, // Cyan dot
+    logic_circuit: { name: "Logic Circuit", color: "#e040fb" }  // Magenta dot
+};
+
+export const BUILDINGS = {
     // EXTRACTION
     miner_mk1: {
-        name: "Data Miner Mk1",
-        icon: "⛏️",
-        cost: { cash: 15 },
-        powerDraw: 2,
-        speed: 1, // Items per 5 seconds
-        desc: "Extracts raw web-matter from the page.",
+        type: "miner", name: "Data Miner Mk1", icon: "⛏️",
+        cost: { cash: 15 }, powerDraw: 2, speed: 1, // Items per 5s
+        bufferMax: 5, // Internal storage capacity
         update: (node, state) => {
-            node.timer++;
-            if (node.timer >= 300 / node.speed) { // roughly 5 seconds
-                node.buffer.push("raw_matter");
-                node.timer = 0;
+            if (node.buffer.length < node.bufferMax) {
+                node.timer++;
+                if (node.timer >= 300 / node.speed) {
+                    node.buffer.push("raw_matter");
+                    node.timer = 0;
+                }
             }
         }
     },
 
-    // LOGISTICS
+    // LOGISTICS (Belts move things forward)
     belt: {
-        name: "Conveyor Belt",
-        icon: "➡",
-        cost: { cash: 5 },
-        powerDraw: 0.1,
-        desc: "Moves items in a specific direction.",
+        type: "belt", name: "Conveyor Belt", icon: "➡",
+        cost: { cash: 5 }, powerDraw: 0.1,
         update: (node, state, grid) => {
-            if (node.buffer.length > 0) {
-                // Logic to find the next tile based on node.direction
-                // and push the item forward
+            // Find the NEXT tile based on node.direction (0:U, 1:R, 2:D, 3:L)
+            const nextKey = getNextTileKey(node);
+            const target = grid[nextKey];
+
+            if (node.buffer.length > 0 && target && target.type === 'belt') {
+                // If next tile is a belt and has space
+                if (target.buffer.length < 4) { // Belt max capacity
+                    const item = node.buffer.shift();
+                    target.buffer.push(item);
+                }
             }
         }
     },
 
-    // PROCESSING
-    assembler: {
-        name: "Basic Assembler",
-        icon: "⚙️",
-        cost: { cash: 50 },
-        powerDraw: 5,
-        recipe: { input: "raw_matter", qty: 2, output: "logic_circuit" },
-        desc: "Combines raw matter into complex components.",
-        update: (node, state) => {
-            const matterCount = node.buffer.filter(i => i === "raw_matter").length;
-            if (matterCount >= 2) {
-                // Consume 2 raw matter, produce 1 logic circuit after delay
-            }
-        }
-    },
+    // INSERTERS (Essential linking mechanism)
+    inserter: {
+        type: "inserter", name: "Basic Inserter", icon: "🦾",
+        cost: { cash: 10 }, powerDraw: 1,
+        update: (node, state, grid) => {
+            node.timer++;
+            if (node.timer < 60) return; // Inserter speed (1 swing/s)
+            
+            const sourceKey = getPrevTileKey(node);
+            const destKey = getNextTileKey(node);
+            const source = grid[sourceKey];
+            const dest = grid[destKey];
 
-    // RESEARCH
-    lab: {
-        name: "Research Lab",
-        icon: "🧪",
-        cost: { cash: 100 },
-        powerDraw: 8,
-        desc: "Consumes components to generate Science Points.",
-        update: (node, state) => {
-            if (node.buffer.includes("logic_circuit")) {
-                node.buffer.splice(node.buffer.indexOf("logic_circuit"), 1);
-                state.science += 5;
+            // PULL from source output
+            if (source && source.buffer.length > 0) {
+                // PUSH to dest input
+                if (dest && dest.buffer.length < (dest.bufferMax || 4)) {
+                    const item = source.buffer.shift();
+                    dest.buffer.push(item);
+                    node.timer = 0;
+                }
             }
         }
     }
 };
+
+// --- Helper Functions for Directional Logic ---
+export function getNextTileKey(node) {
+    let nx = node.x, ny = node.y;
+    if (node.direction === 0) ny--;      // Up
+    else if (node.direction === 1) nx++; // Right
+    else if (node.direction === 2) ny++; // Down
+    else if (node.direction === 3) nx--; // Left
+    return `${nx},${ny}`;
+}
+
+export function getPrevTileKey(node) {
+    // The opposite of next tile (for inserter picking)
+    let px = node.x, py = node.y;
+    if (node.direction === 0) py++;      // Bottom (Source)
+    else if (node.direction === 1) px--; // Left (Source)
+    else if (node.direction === 2) py--; // Top (Source)
+    else if (node.direction === 3) px++; // Right (Source)
+    return `${px},${py}`;
+}
