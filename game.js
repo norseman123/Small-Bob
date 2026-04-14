@@ -51,18 +51,22 @@ canvas.addEventListener('mousedown', (e) => {
 });
 
 function update() {
-    // 1. TAX REFORM: No tax if you have less than 3 buildings (Starting Grace)
+    // 1. SMART TAX LOGIC
+    // Only start taxing once the player has established a real income (e.g., $250)
+    // or has more than 5 buildings.
+    const isGracePeriod = state.money < 250 && state.buildings.length < 5;
+    
     state.taxTimer++;
     if (state.taxTimer > 60) {
-        if (state.buildings.length >= 3) {
-            const totalTax = state.buildings.reduce((sum, b) => sum + b.tax, 0);
+        if (!isGracePeriod) {
+            const totalTax = state.buildings.reduce((sum, b) => sum + (b.tax || 0), 0);
             state.money -= totalTax;
         }
         state.taxTimer = 0;
     }
 
-    // 2. BANKRUPTCY CHECK
-    if (state.money < 0) state.money = 0; // Prevent infinite debt for now
+    // 2. PREVENT NEGATIVE NUMBERS
+    if (state.money < 0) state.money = 0;
 
     const maw = state.buildings.find(m => m.type === 'maw');
     const refinery = state.buildings.find(r => r.type === 'refinery');
