@@ -1,6 +1,51 @@
-// game.js - Canvas Drawing Update
-import { BUILDINGS, ITEMS } from './buildings.js';
+import { BUILDINGS } from './buildings.js';
 
+function setupInputs() {
+    document.querySelectorAll('.tool').forEach(btn => {
+        btn.onclick = (e) => {
+            // 1. Visual feedback: Remove active class from all
+            document.querySelectorAll('.tool').forEach(b => b.classList.remove('active'));
+            
+            // 2. Update State
+            const type = btn.dataset.type;
+            state.selectedTool = type;
+            
+            // 3. Add active class to clicked
+            btn.classList.add('active');
+            
+            console.log("Selected Tool:", state.selectedTool); // Debugging
+            e.stopPropagation();
+        };
+    });
+}
+
+// Update your placeBuilding to handle potential "undefined" errors
+function placeBuilding(gridX, gridY, type) {
+    const config = BUILDINGS[type];
+    
+    // Safety check: Does this building exist in our config?
+    if (!config) {
+        console.error(`Building type "${type}" not found in buildings.js`);
+        return;
+    }
+
+    const cost = config.cost.cash || 0;
+
+    if (state.cash >= cost) {
+        state.cash -= cost;
+        state.grid[`${gridX},${gridY}`] = {
+            ...JSON.parse(JSON.stringify(config)), // Deep copy to prevent sharing state
+            x: gridX,
+            y: gridY,
+            direction: 1, // Default to Right
+            buffer: [],
+            timer: 0
+        };
+        updateUI();
+    } else {
+        console.log("Not enough cash!");
+    }
+}
 // --- Draw Item Particles ---
 function drawItem(ctx, itemType, x, y) {
     const config = ITEMS[itemType];
