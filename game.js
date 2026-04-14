@@ -1,138 +1,122 @@
-import { BUILDINGS } from './buildings.js';
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const moneyEl = document.getElementById('money');
 
-function setupInputs() {
-    document.querySelectorAll('.tool').forEach(btn => {
-        btn.onclick = (e) => {
-            // 1. Visual feedback: Remove active class from all
-            document.querySelectorAll('.tool').forEach(b => b.classList.remove('active'));
-            
-            // 2. Update State
-            const type = btn.dataset.type;
-            state.selectedTool = type;
-            
-            // 3. Add active class to clicked
-            btn.classList.add('active');
-            
-            console.log("Selected Tool:", state.selectedTool); // Debugging
-            e.stopPropagation();
-        };
-    });
-}
-
-// Update your placeBuilding to handle potential "undefined" errors
-function placeBuilding(gridX, gridY, type) {
-    const config = BUILDINGS[type];
-    
-    // Safety check: Does this building exist in our config?
-    if (!config) {
-        console.error(`Building type "${type}" not found in buildings.js`);
-        return;
-    }
-
-    const cost = config.cost.cash || 0;
-
-    if (state.cash >= cost) {
-        state.cash -= cost;
-        state.grid[`${gridX},${gridY}`] = {
-            ...JSON.parse(JSON.stringify(config)), // Deep copy to prevent sharing state
-            x: gridX,
-            y: gridY,
-            direction: 1, // Default to Right
-            buffer: [],
-            timer: 0
-        };
-        updateUI();
-    } else {
-        console.log("Not enough cash!");
-    }
-}
-// --- Draw Item Particles ---
-function drawItem(ctx, itemType, x, y) {
-    const config = ITEMS[itemType];
-    if (!config) return;
-    
-    ctx.fillStyle = config.color;
-    ctx.beginPath();
-    ctx.arc(x, y, 4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#fff';
-    ctx.stroke();
-}
-
-// --- Specific Draw Functions for Building Types ---
-const DRAW_FUNCTIONS = {
-    belt: (ctx, node, px, py, TILE_SIZE) => {
-        const center = TILE_SIZE / 2;
-        ctx.save();
-        ctx.translate(px + center, py + center);
-        // Rotate the canvas based on belt direction
-        ctx.rotate((node.direction * 90) * Math.PI / 180);
-        
-        // Draw Belt Graphic (Dashed arrow)
-        ctx.strokeStyle = '#444';
-        ctx.lineWidth = 4; ctx.setLineDash([5, 5]);
-        ctx.beginPath(); ctx.moveTo(-center + 5, 0); ctx.lineTo(center - 5, 0); ctx.stroke();
-        
-        // Draw Arrowhead
-        ctx.beginPath(); ctx.moveTo(center - 10, -10); ctx.lineTo(center - 5, 0); ctx.lineTo(center - 10, 10); ctx.stroke();
-        ctx.restore(); ctx.setLineDash([]); // Reset dash
-
-        // Draw Items on Belt (Buffer is 0-4 slots along the line)
-        node.buffer.forEach((itemType, index) => {
-            // Calculate item position along the line (0-1 progression)
-            const progress = (index + 1) / (node.buffer.length + 1);
-            let itemX = -center + (TILE_SIZE * progress);
-            let itemY = 0;
-            
-            // Re-apply rotation logic to position the item correctly
-            ctx.save();
-            ctx.translate(px + center, py + center);
-            ctx.rotate((node.direction * 90) * Math.PI / 180);
-            drawItem(ctx, itemType, itemX, itemY);
-            ctx.restore();
-        });
-    },
-    
-    inserter: (ctx, node, px, py, TILE_SIZE) => {
-        const center = TILE_SIZE / 2;
-        ctx.strokeStyle = '#888'; ctx.lineWidth = 3;
-        ctx.save();
-        ctx.translate(px + center, py + center);
-        ctx.rotate((node.direction * 90) * Math.PI / 180);
-        
-        // Draw Inserter Body (L-Shape)
-        ctx.beginPath();
-        ctx.moveTo(-10, 0); ctx.lineTo(10, 0); // Base arm
-        ctx.lineTo(10, -TILE_SIZE/2 - 5);    // Swing arm
-        ctx.stroke();
-        
-        // Visual indicator: If holding an item, draw it at the tip of the arm
-        if (node.buffer.length > 0) {
-            drawItem(ctx, node.buffer[0], 10, -TILE_SIZE/2 - 5);
-        }
-        ctx.restore();
-    },
-    
-    generic: (ctx, node, px, py, TILE_SIZE) => {
-        // Fallback for miners, assemblers, labs (squares with icons)
-        const config = BUILDINGS[node.type];
-        ctx.fillStyle = (node.timer > 0) ? '#004411' : '#222'; // Flashes green when working
-        ctx.strokeStyle = config.color;
-        ctx.lineWidth = 2;
-        ctx.fillRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
-        ctx.strokeRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
-        
-        ctx.fillStyle = '#fff'; ctx.font = '16px sans-serif';
-        ctx.fillText(config.icon, px + 10, py + 26);
-    }
+let state = {
+    money: 100,
+    buildings: [],
+    workers: [],
+    selectedTool: null
 };
 
-// --- The Master Draw Function (Call this in your main loop) ---
-export function drawGrid(ctx, state, TILE_SIZE) {
-    Object.values(state.grid).forEach(node => {
-        const px = node.x * TILE_SIZE;
-        const py = node.y * TILE_SIZE;
-        const drawFn = DRAW_FUNCTIONS[node.type] || DRAW_FUNCTIONS.generic;
-        drawFn(ctx, node, px, py, TILE_SIZE);
+// Make the tool selection function global so buttons can see it
+window.setTool = (tool) => {
+    state.selectedTool = tool;
+    // Visual feedback for buttons
+    document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    if(tool) document.getElementById(`btn-${tool}`).classList.add('active');
+};
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+// Clicking to place buildings
+canvas.addEventListener('mousedown', (e) => {
+    if (!state.selectedTool) return;
+
+    const costs = { drill: 10, maw: 50 };
+    if (state.money >= costs[state.selectedTool]) {
+        state.money -= costs[state.selectedTool];
+        moneyEl.innerText = state.money;
+        
+        state.buildings.push({
+            type: state.selectedTool,
+            x: e.clientX,
+            y: e.clientY,
+            inventory: 0,
+            timer: 0
+        });
+    }
+});
+
+function update() {
+    // 1. Drills produce Raw Data
+    const maw = state.buildings.find(m => m.type === 'maw');
+    
+    state.buildings.forEach(b => {
+        if (b.type === 'drill') {
+            b.timer++;
+            // Every 3 seconds, try to send a worker if a Maw exists
+            if (b.timer > 180 && maw) {
+                state.workers.push({
+                    x: b.x,
+                    y: b.y,
+                    target: maw,
+                    speed: 2.5
+                });
+                b.timer = 0;
+            }
+        }
+    });
+
+    // 2. Workers move to the Maw
+    state.workers.forEach((w, index) => {
+        const dx = w.target.x - w.x;
+        const dy = w.target.y - w.y;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist > 5) {
+            w.x += (dx / dist) * w.speed;
+            w.y += (dy / dist) * w.speed;
+        } else {
+            // Arrived at Maw: Get paid and delete worker
+            state.money += 25;
+            moneyEl.innerText = state.money;
+            state.workers.splice(index, 1);
+        }
     });
 }
+
+function draw() {
+    ctx.fillStyle = '#111';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw Grid (for flavor)
+    ctx.strokeStyle = '#222';
+    for(let i=0; i<canvas.width; i+=40) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke(); }
+    for(let i=0; i<canvas.height; i+=40) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(canvas.width,i); ctx.stroke(); }
+
+    // Draw Buildings
+    state.buildings.forEach(b => {
+        ctx.fillStyle = b.type === 'drill' ? '#0cf' : '#f00';
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = ctx.fillStyle;
+        
+        ctx.beginPath();
+        // Drills are triangles, Maws are circles
+        if (b.type === 'drill') {
+            ctx.moveTo(b.x, b.y - 20); ctx.lineTo(b.x + 20, b.y + 20); ctx.lineTo(b.x - 20, b.y + 20);
+        } else {
+            ctx.arc(b.x, b.y, 25, 0, Math.PI * 2);
+        }
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    });
+
+    // Draw Little Guys
+    state.workers.forEach(w => {
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(w.x - 4, w.y - 4, 8, 8);
+        // Glow effect for the guy
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = "#fff";
+        ctx.fillRect(w.x - 2, w.y - 2, 4, 4);
+        ctx.shadowBlur = 0;
+    });
+
+    update();
+    requestAnimationFrame(draw);
+}
+
+// Start the loop
+draw();
