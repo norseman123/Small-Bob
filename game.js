@@ -6,13 +6,12 @@ let state = {
     money: 100,
     buildings: [],
     workers: [],
-    selectedTool: null
+    selectedTool: null,
+    taxTimer: 0
 };
 
-// Make the tool selection function global so buttons can see it
 window.setTool = (tool) => {
     state.selectedTool = tool;
-    // Visual feedback for buttons
     document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
     if(tool) document.getElementById(`btn-${tool}`).classList.add('active');
 };
@@ -20,46 +19,71 @@ window.setTool = (tool) => {
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// Clicking to place buildings
 canvas.addEventListener('mousedown', (e) => {
     if (!state.selectedTool) return;
-
-    const costs = { drill: 10, maw: 50 };
+    const costs = { drill: 20, refinery: 150, maw: 100 };
     if (state.money >= costs[state.selectedTool]) {
         state.money -= costs[state.selectedTool];
-        moneyEl.innerText = state.money;
-        
         state.buildings.push({
             type: state.selectedTool,
             x: e.clientX,
             y: e.clientY,
-            inventory: 0,
+            inventory: [],
             timer: 0
         });
     }
 });
 
 function update() {
-    // 1. Drills produce Raw Data
+    // 1. Maintenance Tax (The "Money Sink")
+    state.taxTimer++;
+    if (state.taxTimer > 60) {
+        // Every second, pay $1 per building
+        state.money -= state.buildings.length;
+        state.taxTimer = 0;
+    }
+
     const maw = state.buildings.find(m => m.type === 'maw');
-    
+    const refinery = state.buildings.find(r => r.type === 'refinery');
+
     state.buildings.forEach(b => {
+        // DRILL LOGIC
         if (b.type === 'drill') {
             b.timer++;
-            // Every 3 seconds, try to send a worker if a Maw exists
-            if (b.timer > 180 && maw) {
-                state.workers.push({
-                    x: b.x,
-                    y: b.y,
-                    target: maw,
-                    speed: 2.5
-                });
+            if (b.timer > 120) { // Every 2 seconds
+                // Pathfinding: Go to refinery if it exists, otherwise go to Maw
+                const destination = refinery || maw;
+                if (destination) {
+                    state.workers.push({
+                        x: b.x, y: b.y,
+                        target: destination,
+                        content: 'raw', // White cargo
+                        speed: 2
+                    });
+                }
                 b.timer = 0;
+            }
+        }
+
+        // REFINERY LOGIC
+        if (b.type === 'refinery') {
+            if (b.inventory.length > 0) {
+                b.timer++;
+                if (b.timer > 180 && maw) { // 3 seconds to refine
+                    b.inventory.shift();
+                    state.workers.push({
+                        x: b.x, y: b.y,
+                        target: maw,
+                        content: 'refined', // Purple cargo
+                        speed: 3
+                    });
+                    b.timer = 0;
+                }
             }
         }
     });
 
-    // 2. Workers move to the Maw
+    // 2. Workers Logic
     state.workers.forEach((w, index) => {
         const dx = w.target.x - w.x;
         const dy = w.target.y - w.y;
@@ -69,54 +93,47 @@ function update() {
             w.x += (dx / dist) * w.speed;
             w.y += (dy / dist) * w.speed;
         } else {
-            // Arrived at Maw: Get paid and delete worker
-            state.money += 25;
-            moneyEl.innerText = state.money;
+            // Drop off logic
+            if (w.target.type === 'maw') {
+                state.money += (w.content === 'refined' ? 100 : 2);
+            } else if (w.target.type === 'refinery') {
+                w.target.inventory.push('raw');
+            }
             state.workers.splice(index, 1);
         }
     });
+
+    moneyEl.innerText = Math.floor(state.money);
 }
 
 function draw() {
-    ctx.fillStyle = '#111';
+    ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw Grid (for flavor)
-    ctx.strokeStyle = '#222';
-    for(let i=0; i<canvas.width; i+=40) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke(); }
-    for(let i=0; i<canvas.height; i+=40) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(canvas.width,i); ctx.stroke(); }
-
-    // Draw Buildings
     state.buildings.forEach(b => {
-        ctx.fillStyle = b.type === 'drill' ? '#0cf' : '#f00';
         ctx.shadowBlur = 15;
-        ctx.shadowColor = ctx.fillStyle;
-        
-        ctx.beginPath();
-        // Drills are triangles, Maws are circles
         if (b.type === 'drill') {
-            ctx.moveTo(b.x, b.y - 20); ctx.lineTo(b.x + 20, b.y + 20); ctx.lineTo(b.x - 20, b.y + 20);
+            ctx.fillStyle = '#0cf';
+            ctx.beginPath(); ctx.moveTo(b.x, b.y-15); ctx.lineTo(b.x+15, b.y+15); ctx.lineTo(b.x-15, b.y+15); ctx.fill();
+        } else if (b.type === 'refinery') {
+            ctx.fillStyle = '#e040fb'; // Purple
+            ctx.fillRect(b.x-20, b.y-20, 40, 40);
+            // Draw "Loading Bar" for refinery
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(b.x-20, b.y+25, (b.timer/180)*40, 5);
         } else {
-            ctx.arc(b.x, b.y, 25, 0, Math.PI * 2);
+            ctx.fillStyle = '#f00';
+            ctx.beginPath(); ctx.arc(b.x, b.y, 25, 0, Math.PI*2); ctx.fill();
         }
-        ctx.fill();
         ctx.shadowBlur = 0;
     });
 
-    // Draw Little Guys
     state.workers.forEach(w => {
-        ctx.fillStyle = '#fff';
+        ctx.fillStyle = w.content === 'refined' ? '#e040fb' : '#fff';
         ctx.fillRect(w.x - 4, w.y - 4, 8, 8);
-        // Glow effect for the guy
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = "#fff";
-        ctx.fillRect(w.x - 2, w.y - 2, 4, 4);
-        ctx.shadowBlur = 0;
     });
 
     update();
     requestAnimationFrame(draw);
 }
-
-// Start the loop
 draw();
