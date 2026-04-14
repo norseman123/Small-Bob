@@ -1,31 +1,77 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>The Maw & The Drill</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Industrial Occult</title>
     <style>
-        body { margin: 0; background: #111; color: #0f0; font-family: 'Courier New', monospace; overflow: hidden; }
-        #ui { position: absolute; top: 20px; left: 20px; z-index: 10; pointer-events: none; }
-        .stat { font-size: 24px; text-shadow: 2px 2px #000; }
-        #menu { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); display: flex; gap: 15px; z-index: 10; }
-        button { 
-            padding: 15px 25px; cursor: pointer; background: #222; color: #0f0; 
-            border: 2px solid #0f0; font-family: inherit; font-weight: bold; transition: 0.2s;
+        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Courier New', Courier, monospace; }
+        canvas { display: block; }
+
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 100;
+            pointer-events: none;
         }
-        button:hover { background: #0f0; color: #000; }
-        button.active { background: #00ff41; color: #000; box-shadow: 0 0 15px #0f0; }
-        canvas { display: block; cursor: crosshair; }
+
+        #stats {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-left: 4px solid #0f0;
+            margin-bottom: 10px;
+            color: #fff;
+            pointer-events: auto;
+        }
+
+        #menu {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            pointer-events: auto;
+        }
+
+        button {
+            background: #111;
+            color: #ccc;
+            border: 1px solid #444;
+            padding: 10px 15px;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover { background: #222; color: #fff; border-color: #888; }
+        button.active {
+            background: #004466;
+            border-color: #00ccff;
+            color: #fff;
+            box-shadow: 0 0 10px #00ccff;
+        }
+
+        .essence-text { color: #00f2ff; font-weight: bold; }
+        .money-text { color: #00ff41; font-weight: bold; }
     </style>
 </head>
 <body>
+
     <div id="ui">
-        <div class="stat">BANK: $<span id="money">100</span></div>
-<div id="menu">
-    <button id="btn-drill" onclick="setTool('drill')">DRILL ($20)</button>
-    <button id="btn-mega_drill" onclick="setTool('mega_drill')">MEGA DRILL ($500)</button>
-    <button id="btn-refinery" onclick="setTool('refinery')">REFINERY ($150)</button>
-    <button id="btn-purifier" onclick="setTool('purifier')">PURIFIER ($400)</button>
-    <button id="btn-altar" onclick="setTool('altar')">ALTAR ($1000)</button>
-</div>
+        <div id="stats">
+            BANK: <span class="money-text">$<span id="money">300</span></span><br>
+            ESSENCE: <span class="essence-text" id="essence">0</span>
+        </div>
+
+        <div id="menu">
+            <button id="btn-drill" onclick="setTool('drill')">⛏️ DRILL ($20)</button>
+            <button id="btn-mega_drill" onclick="setTool('mega_drill')">🚜 MEGA DRILL ($500)</button>
+            <button id="btn-refinery" onclick="setTool('refinery')">🌀 REFINERY ($150)</button>
+            <button id="btn-purifier" onclick="setTool('purifier')">💎 PURIFIER ($400)</button>
+            <button id="btn-altar" onclick="setTool('altar')">🕯️ ALTAR ($1000)</button>
+            <button id="btn-maw" onclick="setTool('maw')">👄 THE MAW ($100)</button>
+        </div>
+    </div>
+
     <canvas id="canvas"></canvas>
 
     <script src="game.js"></script>
