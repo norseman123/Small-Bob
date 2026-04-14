@@ -1,28 +1,28 @@
 // 1. DATA CONFIGURATION
 const CATALOG = {
     drill: { 
-        cost: 20, tax: 0.1, speed: 100, color: '#0cf', icon: '⛏️', payout: 10 
+        cost: 20, tax: 0.1, speed: 100, color: '#0cf', payout: 10 
     },
     refinery: { 
-        cost: 150, tax: 1.5, speed: 150, color: '#e040fb', icon: '🌀', input: 'raw', output: 'refined' 
+        cost: 150, tax: 1.5, speed: 150, color: '#e040fb', input: 'raw', output: 'refined' 
     },
     maw: { 
-        cost: 100, tax: 0.5, color: '#f00', icon: '👄' 
+        cost: 100, tax: 0.5, color: '#f00' 
     },
     mega_drill: { 
-        cost: 500, tax: 4.0, speed: 60, color: '#ffea00', icon: '🚜', payout: 100 
+        cost: 500, tax: 4.0, speed: 60, color: '#ffea00', payout: 100 
     }
 };
 
 let state = {
-    money: 300, // $200 Bonus included
+    money: 300, // Includes your $200 bonus
     buildings: [],
     workers: [],
     selectedTool: null,
     taxTimer: 0
 };
 
-// 2. HELPER FUNCTIONS (Distance Logic)
+// 2. HELPER FUNCTIONS
 function findNearest(origin, type) {
     const targets = state.buildings.filter(b => b.type === type);
     if (targets.length === 0) return null;
@@ -41,19 +41,19 @@ function findNearest(origin, type) {
 }
 
 // 3. UI CONTROLS
-window.setTool = (t) => {
-    state.selectedTool = t;
-    document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-    const btn = document.getElementById(`btn-${t}`);
-    if(btn) btn.classList.add('active');
-};
-
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const moneyEl = document.getElementById('money');
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
+
+window.setTool = (t) => {
+    state.selectedTool = t;
+    document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById(`btn-${t}`);
+    if(btn) btn.classList.add('active');
+};
 
 // 4. PLACEMENT LOGIC
 canvas.addEventListener('mousedown', (e) => {
@@ -73,21 +73,22 @@ canvas.addEventListener('mousedown', (e) => {
 
 // 5. THE CORE ENGINE
 function update() {
-    // Taxation
+    // Taxation Logic
     state.taxTimer++;
     if (state.taxTimer > 60) {
-        if (state.money > 20) { // Tax protection
+        if (state.money > 20) { 
             const totalTax = state.buildings.reduce((sum, b) => sum + (b.tax || 0), 0);
             state.money -= totalTax;
         }
         state.taxTimer = 0;
     }
 
-    // Production
+    // Production Logic
     state.buildings.forEach(b => {
         if (b.type === 'drill' || b.type === 'mega_drill') {
             b.timer++;
             if (b.timer > b.speed) {
+                // Find nearest refinery first, then nearest maw
                 const target = findNearest(b, 'refinery') || findNearest(b, 'maw');
                 if (target) {
                     state.workers.push({
@@ -115,7 +116,7 @@ function update() {
         }
     });
 
-    // Logistics (Movement)
+    // Worker Movement & Delivery
     for (let i = state.workers.length - 1; i >= 0; i--) {
         const w = state.workers[i];
         const dx = w.target.x - w.x;
@@ -126,7 +127,7 @@ function update() {
             w.x += (dx / dist) * w.speed;
             w.y += (dy / dist) * w.speed;
         } else {
-            // Arrival
+            // Arrival logic
             if (w.target.type === 'maw') {
                 state.money += (w.content === 'refined') ? 200 : (CATALOG[w.originType]?.payout || 10);
             } else if (w.target.type === 'refinery') {
@@ -144,6 +145,7 @@ function draw() {
     ctx.fillStyle = '#050505';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    // Draw Buildings
     state.buildings.forEach(b => {
         ctx.fillStyle = b.color;
         ctx.shadowBlur = 15; ctx.shadowColor = b.color;
@@ -161,6 +163,7 @@ function draw() {
         ctx.shadowBlur = 0;
     });
 
+    // Draw Workers
     state.workers.forEach(w => {
         ctx.fillStyle = w.content === 'refined' ? '#e040fb' : 'white';
         ctx.fillRect(w.x-3, w.y-3, 6, 6);
@@ -170,4 +173,5 @@ function draw() {
     requestAnimationFrame(draw);
 }
 
+// Start the loop
 draw();
