@@ -1,25 +1,19 @@
-// 1. DATA CONFIGURATION
 const CATALOG = {
-    drill: { 
-        cost: 20, tax: 0.1, speed: 100, color: '#0cf', payout: 10 
-    },
-    refinery: { 
-        cost: 150, tax: 1.5, speed: 150, color: '#e040fb', input: 'raw', output: 'refined' 
-    },
-    maw: { 
-        cost: 100, tax: 0.5, color: '#f00' 
-    },
-    mega_drill: { 
-        cost: 500, tax: 4.0, speed: 60, color: '#ffea00', payout: 100 
-    }
+    drill: { cost: 20, tax: 0.1, speed: 100, color: '#0cf', payout: 10 },
+    mega_drill: { cost: 500, tax: 4.0, speed: 60, color: '#ffea00', payout: 100 },
+    refinery: { cost: 150, tax: 1.5, speed: 150, color: '#e040fb', input: 'raw', output: 'refined' },
+    purifier: { cost: 400, tax: 3.0, speed: 200, color: '#00f2ff', input: 'raw', output: 'essence' },
+    altar: { cost: 1000, tax: 15.0, color: '#ff0055' } // High tax "Ritual Pressure"
 };
 
 let state = {
-    money: 300, // Includes your $200 bonus
+    money: 300,
+    essence: 0,
     buildings: [],
     workers: [],
     selectedTool: null,
-    taxTimer: 0
+    taxTimer: 0,
+    ritualActive: false
 };
 
 // 2. HELPER FUNCTIONS
