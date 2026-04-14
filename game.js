@@ -2,18 +2,34 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const moneyEl = document.getElementById('money');
 
+// --- THE "BILLION" CONFIGURATION ---
+// Add anything here to create a new building automatically!
+const CATALOG = {
+    drill: { 
+        cost: 20, tax: 0.5, speed: 120, color: '#0cf', icon: '⛏️', 
+        output: 'raw', payout: 2 
+    },
+    refinery: { 
+        cost: 150, tax: 2, speed: 180, color: '#e040fb', icon: '🌀', 
+        input: 'raw', output: 'refined' 
+    },
+    maw: { 
+        cost: 100, tax: 5, color: '#f00', icon: '👄' 
+    }
+};
+
 let state = {
-    money: 150,
+    money: 100,
     buildings: [],
     workers: [],
     selectedTool: null,
     taxTimer: 0
 };
 
-window.setTool = (tool) => {
-    state.selectedTool = tool;
+window.setTool = (t) => {
+    state.selectedTool = t;
     document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-    if(tool) document.getElementById(`btn-${tool}`).classList.add('active');
+    if(t) document.getElementById(`btn-${t}`).classList.add('active');
 };
 
 canvas.width = window.innerWidth;
@@ -21,89 +37,79 @@ canvas.height = window.innerHeight;
 
 canvas.addEventListener('mousedown', (e) => {
     if (!state.selectedTool) return;
-    const costs = { drill: 20, refinery: 150, maw: 100 };
-    if (state.money >= costs[state.selectedTool]) {
-        state.money -= costs[state.selectedTool];
+    const config = CATALOG[state.selectedTool];
+    
+    if (state.money >= config.cost) {
+        state.money -= config.cost;
         state.buildings.push({
+            ...config, // Copy everything from the catalog
             type: state.selectedTool,
-            x: e.clientX,
-            y: e.clientY,
-            inventory: [],
-            timer: 0
+            x: e.clientX, y: e.clientY,
+            inventory: [], timer: 0
         });
     }
 });
 
 function update() {
-    // 1. Maintenance Tax (The "Money Sink")
+    // 1. TAX REFORM: No tax if you have less than 3 buildings (Starting Grace)
     state.taxTimer++;
     if (state.taxTimer > 60) {
-        // Every second, pay $1 per building
-        state.money -= state.buildings.length;
+        if (state.buildings.length >= 3) {
+            const totalTax = state.buildings.reduce((sum, b) => sum + b.tax, 0);
+            state.money -= totalTax;
+        }
         state.taxTimer = 0;
     }
+
+    // 2. BANKRUPTCY CHECK
+    if (state.money < 0) state.money = 0; // Prevent infinite debt for now
 
     const maw = state.buildings.find(m => m.type === 'maw');
     const refinery = state.buildings.find(r => r.type === 'refinery');
 
     state.buildings.forEach(b => {
         // DRILL LOGIC
-        if (b.type === 'drill') {
+        if (b.type === 'drill' && (refinery || maw)) {
             b.timer++;
-            if (b.timer > 120) { // Every 2 seconds
-                // Pathfinding: Go to refinery if it exists, otherwise go to Maw
-                const destination = refinery || maw;
-                if (destination) {
-                    state.workers.push({
-                        x: b.x, y: b.y,
-                        target: destination,
-                        content: 'raw', // White cargo
-                        speed: 2
-                    });
-                }
+            if (b.timer > b.speed) {
+                state.workers.push({
+                    x: b.x, y: b.y,
+                    target: refinery || maw,
+                    content: 'raw', speed: 2
+                });
                 b.timer = 0;
             }
         }
 
         // REFINERY LOGIC
-        if (b.type === 'refinery') {
-            if (b.inventory.length > 0) {
-                b.timer++;
-                if (b.timer > 180 && maw) { // 3 seconds to refine
-                    b.inventory.shift();
-                    state.workers.push({
-                        x: b.x, y: b.y,
-                        target: maw,
-                        content: 'refined', // Purple cargo
-                        speed: 3
-                    });
-                    b.timer = 0;
-                }
+        if (b.type === 'refinery' && b.inventory.length > 0 && maw) {
+            b.timer++;
+            if (b.timer > b.speed) {
+                b.inventory.shift();
+                state.workers.push({ x: b.x, y: b.y, target: maw, content: 'refined', speed: 3 });
+                b.timer = 0;
             }
         }
     });
 
-    // 2. Workers Logic
-    state.workers.forEach((w, index) => {
-        const dx = w.target.x - w.x;
-        const dy = w.target.y - w.y;
-        const dist = Math.hypot(dx, dy);
-
+    // 3. WORKER LOGIC
+    state.workers.forEach((w, i) => {
+        const dist = Math.hypot(w.target.x - w.x, w.target.y - w.y);
         if (dist > 5) {
-            w.x += (dx / dist) * w.speed;
-            w.y += (dy / dist) * w.speed;
+            w.x += ((w.target.x - w.x) / dist) * w.speed;
+            w.y += ((w.target.y - w.y) / dist) * w.speed;
         } else {
-            // Drop off logic
             if (w.target.type === 'maw') {
                 state.money += (w.content === 'refined' ? 100 : 2);
             } else if (w.target.type === 'refinery') {
                 w.target.inventory.push('raw');
             }
-            state.workers.splice(index, 1);
+            state.workers.splice(i, 1);
         }
     });
 
     moneyEl.innerText = Math.floor(state.money);
+    moneyEl.style.color = state.money < 20 ? 'red' : '#0f0';
 }
 
 function draw() {
@@ -111,18 +117,15 @@ function draw() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     state.buildings.forEach(b => {
-        ctx.shadowBlur = 15;
+        ctx.fillStyle = b.color;
+        ctx.shadowBlur = 15; ctx.shadowColor = b.color;
+        
         if (b.type === 'drill') {
-            ctx.fillStyle = '#0cf';
             ctx.beginPath(); ctx.moveTo(b.x, b.y-15); ctx.lineTo(b.x+15, b.y+15); ctx.lineTo(b.x-15, b.y+15); ctx.fill();
         } else if (b.type === 'refinery') {
-            ctx.fillStyle = '#e040fb'; // Purple
             ctx.fillRect(b.x-20, b.y-20, 40, 40);
-            // Draw "Loading Bar" for refinery
-            ctx.fillStyle = '#fff';
-            ctx.fillRect(b.x-20, b.y+25, (b.timer/180)*40, 5);
+            ctx.fillStyle = '#fff'; ctx.fillRect(b.x-20, b.y+25, (b.timer/b.speed)*40, 5);
         } else {
-            ctx.fillStyle = '#f00';
             ctx.beginPath(); ctx.arc(b.x, b.y, 25, 0, Math.PI*2); ctx.fill();
         }
         ctx.shadowBlur = 0;
@@ -137,18 +140,3 @@ function draw() {
     requestAnimationFrame(draw);
 }
 draw();
-
-
-class Building {
-    constructor(x, y, config) {
-        this.x = x;
-        this.y = y;
-        this.type = config.type;
-        this.productionRate = config.rate;
-        this.inventory = [];
-    }
-    
-    produce() {
-        // Generic logic: if I have ingredients, wait X seconds, then output
-    }
-};
