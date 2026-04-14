@@ -1,30 +1,31 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web-Factory: Refactored</title>
-    <link rel="stylesheet" href="style.css">
+    <title>The Maw & The Drill</title>
+    <style>
+        body { margin: 0; background: #111; color: #0f0; font-family: 'Courier New', monospace; overflow: hidden; }
+        #ui { position: absolute; top: 20px; left: 20px; z-index: 10; pointer-events: none; }
+        .stat { font-size: 24px; text-shadow: 2px 2px #000; }
+        #menu { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); display: flex; gap: 15px; z-index: 10; }
+        button { 
+            padding: 15px 25px; cursor: pointer; background: #222; color: #0f0; 
+            border: 2px solid #0f0; font-family: inherit; font-weight: bold; transition: 0.2s;
+        }
+        button:hover { background: #0f0; color: #000; }
+        button.active { background: #00ff41; color: #000; box-shadow: 0 0 15px #0f0; }
+        canvas { display: block; cursor: crosshair; }
+    </style>
 </head>
 <body>
-    <div id="ui-layer">
-        <div id="top-bar">
-            <div class="stat">💰 Cash: $<span id="cash">100</span></div>
-            <div class="stat">⚡ Power: <span id="power">0</span>/10kW</div>
-            <div class="stat">🧪 Science: <span id="science">0</span></div>
-        </div>
-        
-        <div id="build-menu">
-            <button class="tool" data-type="belt"><span>➡</span> Belt</button>
-            <button class="tool" data-type="miner"><span>⛏</span> Miner</button>
-            <button class="tool" data-type="assembler"><span>⚙</span> Assembler</button>
-            <button class="tool" data-type="lab"><span>🧪</span> Lab</button>
-            <button class="tool" data-type="solar"><span>☀️</span> Solar</button>
-        </div>
+    <div id="ui">
+        <div class="stat">BANK: $<span id="money">100</span></div>
     </div>
+    <div id="menu">
+        <button id="btn-drill" onclick="setTool('drill')">BUY DRILL ($10)</button>
+        <button id="btn-maw" onclick="setTool('maw')">BUY MAW ($50)</button>
+    </div>
+    <canvas id="canvas"></canvas>
 
-    <canvas id="gameCanvas"></canvas>
-
-    <script src="./game.js" type="module"></script>
+    <script src="game.js"></script>
 </body>
 </html>
