@@ -3,7 +3,7 @@ const ctx = canvas.getContext('2d');
 const moneyEl = document.getElementById('money');
 
 let state = {
-    money: 100,
+    money: 150,
     buildings: [],
     workers: [],
     selectedTool: null,
