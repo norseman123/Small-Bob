@@ -19,7 +19,7 @@ const CATALOG = {
 };
 
 let state = {
-    money: 100,
+    money: 150,
     buildings: [],
     workers: [],
     selectedTool: null,
