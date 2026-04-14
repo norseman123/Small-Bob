@@ -153,3 +153,21 @@ function draw() {
             ctx.moveTo(b.x, b.y-s); ctx.lineTo(b.x+s, b.y+s); ctx.lineTo(b.x-s, b.y+s);
             ctx.fill();
         } else if (b.type === 'refinery') {
+            ctx.fillRect(b.x-20, b.y-20, 40, 40);
+            ctx.fillStyle = 'white'; ctx.fillRect(b.x-20, b.y+25, (b.timer/b.speed)*40, 4);
+        } else {
+            ctx.beginPath(); ctx.arc(b.x, b.y, 30, 0, Math.PI*2); ctx.fill();
+        }
+        ctx.shadowBlur = 0;
+    });
+
+    state.workers.forEach(w => {
+        ctx.fillStyle = w.content === 'refined' ? '#e040fb' : 'white';
+        ctx.fillRect(w.x-3, w.y-3, 6, 6);
+    });
+
+    update();
+    requestAnimationFrame(draw);
+}
+
+draw();
