@@ -137,3 +137,18 @@ function draw() {
     requestAnimationFrame(draw);
 }
 draw();
+
+
+class Building {
+    constructor(x, y, config) {
+        this.x = x;
+        this.y = y;
+        this.type = config.type;
+        this.productionRate = config.rate;
+        this.inventory = [];
+    }
+    
+    produce() {
+        // Generic logic: if I have ingredients, wait X seconds, then output
+    }
+};
