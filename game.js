@@ -77,21 +77,29 @@ function update() {
     const maw = state.buildings.find(m => m.type === 'maw');
     const refinery = state.buildings.find(r => r.type === 'refinery');
 
-    state.buildings.forEach(b => {
-        // PRODUCTION LOGIC
-        if ((b.type === 'drill' || b.type === 'mega_drill') && (refinery || maw)) {
-            b.timer++;
-            if (b.timer > b.speed) {
-                state.workers.push({
-                    x: b.x, y: b.y,
-                    target: (b.type === 'drill' && refinery) ? refinery : maw,
-                    content: 'raw',
-                    originType: b.type,
-                    speed: 2.5
-                });
-                b.timer = 0;
-            }
+if ((b.type === 'drill' || b.type === 'mega_drill')) {
+    b.timer++;
+    if (b.timer > b.speed) {
+        // Find the closest refinery AND the closest maw
+        const nearRefinery = findNearest(b, 'refinery');
+        const nearMaw = findNearest(b, 'maw');
+
+        // Logic: If a refinery exists, go to the nearest one. 
+        // Otherwise, go to the nearest Maw.
+        const finalDestination = nearRefinery || nearMaw;
+
+        if (finalDestination) {
+            state.workers.push({
+                x: b.x, y: b.y,
+                target: finalDestination,
+                content: 'raw',
+                originType: b.type,
+                speed: 2.5
+            });
+            b.timer = 0;
         }
+    }
+}
 
         if (b.type === 'refinery' && b.inventory.length > 0 && maw) {
             b.timer++;
