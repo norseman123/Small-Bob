@@ -2,28 +2,28 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const moneyEl = document.getElementById('money');
 
-// --- THE "BILLION" CONFIGURATION ---
-// Add anything here to create a new building automatically!
 const CATALOG = {
     drill: { 
-        cost: 20, tax: 0.5, speed: 120, color: '#0cf', icon: '⛏️', 
-        output: 'raw', payout: 2 
+        cost: 20, tax: 0.1, speed: 100, color: '#0cf', icon: '⛏️', payout: 10 
     },
     refinery: { 
-        cost: 150, tax: 2, speed: 180, color: '#e040fb', icon: '🌀', 
-        input: 'raw', output: 'refined' 
+        cost: 150, tax: 1.5, speed: 150, color: '#e040fb', icon: '🌀', input: 'raw', output: 'refined' 
     },
     maw: { 
-        cost: 100, tax: 5, color: '#f00', icon: '👄' 
+        cost: 100, tax: 0.5, color: '#f00', icon: '👄' 
+    },
+    mega_drill: { 
+        cost: 500, tax: 4.0, speed: 60, color: '#ffea00', icon: '🚜', payout: 75 
     }
 };
 
 let state = {
-    money: 150,
+    money: 300, // <--- YOUR $200 BONUS APPLIED ($100 base + $200)
     buildings: [],
     workers: [],
     selectedTool: null,
-    taxTimer: 0
+    taxTimer: 0,
+    gracePeriod: true
 };
 
 window.setTool = (t) => {
@@ -42,7 +42,7 @@ canvas.addEventListener('mousedown', (e) => {
     if (state.money >= config.cost) {
         state.money -= config.cost;
         state.buildings.push({
-            ...config, // Copy everything from the catalog
+            ...JSON.parse(JSON.stringify(config)),
             type: state.selectedTool,
             x: e.clientX, y: e.clientY,
             inventory: [], timer: 0
@@ -51,52 +51,47 @@ canvas.addEventListener('mousedown', (e) => {
 });
 
 function update() {
-    // 1. SMART TAX LOGIC
-    // Only start taxing once the player has established a real income (e.g., $250)
-    // or has more than 5 buildings.
-    const isGracePeriod = state.money < 250 && state.buildings.length < 5;
-    
+    // 1. IMPROVED TAX LOGIC
     state.taxTimer++;
     if (state.taxTimer > 60) {
-        if (!isGracePeriod) {
+        // TAX PROTECTION: Only tax if money is above $50
+        if (state.money > 50) {
             const totalTax = state.buildings.reduce((sum, b) => sum + (b.tax || 0), 0);
             state.money -= totalTax;
         }
         state.taxTimer = 0;
     }
 
-    // 2. PREVENT NEGATIVE NUMBERS
-    if (state.money < 0) state.money = 0;
-
     const maw = state.buildings.find(m => m.type === 'maw');
     const refinery = state.buildings.find(r => r.type === 'refinery');
 
     state.buildings.forEach(b => {
-        // DRILL LOGIC
-        if (b.type === 'drill' && (refinery || maw)) {
+        // PRODUCTION LOGIC
+        if ((b.type === 'drill' || b.type === 'mega_drill') && (refinery || maw)) {
             b.timer++;
             if (b.timer > b.speed) {
                 state.workers.push({
                     x: b.x, y: b.y,
-                    target: refinery || maw,
-                    content: 'raw', speed: 2
+                    target: (b.type === 'drill' && refinery) ? refinery : maw,
+                    content: 'raw',
+                    originType: b.type,
+                    speed: 2.5
                 });
                 b.timer = 0;
             }
         }
 
-        // REFINERY LOGIC
         if (b.type === 'refinery' && b.inventory.length > 0 && maw) {
             b.timer++;
             if (b.timer > b.speed) {
                 b.inventory.shift();
-                state.workers.push({ x: b.x, y: b.y, target: maw, content: 'refined', speed: 3 });
+                state.workers.push({ x: b.x, y: b.y, target: maw, content: 'refined', speed: 3.5 });
                 b.timer = 0;
             }
         }
     });
 
-    // 3. WORKER LOGIC
+    // 2. WORKER MOVEMENT
     state.workers.forEach((w, i) => {
         const dist = Math.hypot(w.target.x - w.x, w.target.y - w.y);
         if (dist > 5) {
@@ -104,7 +99,11 @@ function update() {
             w.y += ((w.target.y - w.y) / dist) * w.speed;
         } else {
             if (w.target.type === 'maw') {
-                state.money += (w.content === 'refined' ? 100 : 2);
+                if (w.content === 'refined') {
+                    state.money += 150;
+                } else {
+                    state.money += CATALOG[w.originType]?.payout || 10;
+                }
             } else if (w.target.type === 'refinery') {
                 w.target.inventory.push('raw');
             }
@@ -113,31 +112,37 @@ function update() {
     });
 
     moneyEl.innerText = Math.floor(state.money);
-    moneyEl.style.color = state.money < 20 ? 'red' : '#0f0';
+    moneyEl.style.color = state.money < 50 ? '#ff4444' : '#00ff41';
 }
 
 function draw() {
-    ctx.fillStyle = '#0a0a0a';
+    ctx.fillStyle = '#050505';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    // Draw Buildings
     state.buildings.forEach(b => {
         ctx.fillStyle = b.color;
         ctx.shadowBlur = 15; ctx.shadowColor = b.color;
-        
-        if (b.type === 'drill') {
-            ctx.beginPath(); ctx.moveTo(b.x, b.y-15); ctx.lineTo(b.x+15, b.y+15); ctx.lineTo(b.x-15, b.y+15); ctx.fill();
+        if (b.type === 'drill' || b.type === 'mega_drill') {
+            ctx.beginPath(); 
+            const size = b.type === 'mega_drill' ? 25 : 15;
+            ctx.moveTo(b.x, b.y-size); ctx.lineTo(b.x+size, b.y+size); ctx.lineTo(b.x-size, b.y+size); 
+            ctx.fill();
         } else if (b.type === 'refinery') {
             ctx.fillRect(b.x-20, b.y-20, 40, 40);
             ctx.fillStyle = '#fff'; ctx.fillRect(b.x-20, b.y+25, (b.timer/b.speed)*40, 5);
         } else {
-            ctx.beginPath(); ctx.arc(b.x, b.y, 25, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(b.x, b.y, 30, 0, Math.PI*2); ctx.fill();
         }
         ctx.shadowBlur = 0;
     });
 
+    // Draw Workers
     state.workers.forEach(w => {
-        ctx.fillStyle = w.content === 'refined' ? '#e040fb' : '#fff';
-        ctx.fillRect(w.x - 4, w.y - 4, 8, 8);
+        ctx.fillStyle = w.content === 'refined' ? '#e040fb' : '#ffffff';
+        ctx.shadowBlur = 8; ctx.shadowColor = ctx.fillStyle;
+        ctx.fillRect(w.x - 3, w.y - 3, 6, 6);
+        ctx.shadowBlur = 0;
     });
 
     update();
