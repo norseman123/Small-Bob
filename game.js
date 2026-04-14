@@ -2,6 +2,18 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const moneyEl = document.getElementById('money');
 
+function findNearest(origin, type) {
+    const targets = state.buildings.filter(b => b.type === type);
+    if (targets.length === 0) return null;
+
+    // Sort by distance and take the first one
+    return targets.reduce((prev, curr) => {
+        const distPrev = Math.hypot(origin.x - prev.x, origin.y - prev.y);
+        const distCurr = Math.hypot(origin.x - curr.x, origin.y - curr.y);
+        return distCurr < distPrev ? curr : prev;
+    });
+}
+
 const CATALOG = {
     drill: { 
         cost: 20, tax: 0.1, speed: 100, color: '#0cf', icon: '⛏️', payout: 10 
