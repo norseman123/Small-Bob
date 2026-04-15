@@ -10,7 +10,7 @@ const CATALOG = {
 };
 
 let state = {
-    money: 300,
+    money: 500,
     essence: 0,
     buildings: [],
     workers: [],
