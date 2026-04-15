@@ -59,8 +59,11 @@
     <div id="ui">
         <div id="stats">
             BANK: <span class="money-text">$<span id="money">300</span></span><br>
-            ESSENCE: <span class="essence-text" id="essence">0</span>
+            ESSENCE: <span class="essence-text" id="essence">0</span>/20
+            <div id="ritual-status" style="color: #ff0055; font-size: 0.8em; margin-top: 5px; display: none;">
+                🔴 RITUAL ACTIVE: MEGA DRILLS OVERCLOCKED
         </div>
+    </div>
 
         <div id="menu">
             <button id="btn-drill" onclick="setTool('drill')">⛏️ DRILL ($20)</button>
@@ -71,6 +74,7 @@
             <button id="btn-maw" onclick="setTool('maw')">👄 THE MAW ($100)</button>
         </div>
     </div>
+    
 
     <canvas id="canvas"></canvas>
 
