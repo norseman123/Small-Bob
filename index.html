@@ -6,7 +6,13 @@
     <title>The Industrial Occult</title>
     <style>
         body { margin: 0; overflow: hidden; background: #050505; font-family: 'Courier New', Courier, monospace; }
-        canvas { display: block; }
+        canvas { display: block}
+        #canvas {
+    background-image: 
+        linear-gradient(to right, #111 1px, transparent 1px),
+        linear-gradient(to bottom, #111 1px, transparent 1px);
+    background-size: 40px 40px; /* Size of our grid tiles */
+}
 
         #ui {
             position: absolute;
