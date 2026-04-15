@@ -3,87 +3,242 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Industrial Occult</title>
+    <title>Occult Factory: Roguelike</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Courier New', Courier, monospace; }
-        canvas { display: block}
-        #canvas {
-    background-image: 
-        linear-gradient(to right, #111 1px, transparent 1px),
-        linear-gradient(to bottom, #111 1px, transparent 1px);
-    background-size: 40px 40px; /* Size of our grid tiles */
-}
-
+        body { margin: 0; overflow: hidden; background: #0a0a0c; font-family: 'Courier New', Courier, monospace; color: #fff; }
+        canvas { display: block; }
+        
         #ui {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            z-index: 100;
-            pointer-events: none;
+            position: absolute; top: 20px; left: 20px; z-index: 100;
+            pointer-events: none; display: flex; flex-direction: column; gap: 20px;
         }
 
-        #stats {
-            background: rgba(0, 0, 0, 0.8);
-            padding: 15px;
-            border-left: 4px solid #0f0;
-            margin-bottom: 10px;
-            color: #fff;
+        .panel {
+            background: rgba(15, 15, 20, 0.85);
+            border: 1px solid #333;
+            border-top: 3px solid #bc13fe;
+            padding: 15px 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
             pointer-events: auto;
+            backdrop-filter: blur(4px);
         }
 
-        #menu {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-            pointer-events: auto;
-        }
+        h2 { margin: 0 0 10px 0; font-size: 1.2rem; color: #fff; text-transform: uppercase; letter-spacing: 2px;}
+        .stat { font-size: 1.1rem; margin-bottom: 5px; }
+        .money-text { color: #00ff41; font-weight: bold; }
+        .essence-text { color: #00f2ff; font-weight: bold; }
 
         button {
-            background: #111;
-            color: #ccc;
-            border: 1px solid #444;
-            padding: 10px 15px;
-            text-align: left;
-            cursor: pointer;
-            transition: all 0.2s;
+            display: block; width: 100%;
+            background: #1a1a24; color: #aaa;
+            border: 1px solid #444; border-left: 3px solid #555;
+            padding: 10px 15px; margin-bottom: 8px;
+            text-align: left; cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit; font-size: 1rem;
         }
 
-        button:hover { background: #222; color: #fff; border-color: #888; }
+        button:hover { background: #252535; color: #fff; border-left-color: #bc13fe; }
         button.active {
-            background: #004466;
-            border-color: #00ccff;
-            color: #fff;
-            box-shadow: 0 0 10px #00ccff;
+            background: #2a1b38; border-color: #bc13fe;
+            border-left: 5px solid #bc13fe; color: #fff;
+            box-shadow: inset 0 0 10px rgba(188, 19, 254, 0.2);
         }
-
-        .essence-text { color: #00f2ff; font-weight: bold; }
-        .money-text { color: #00ff41; font-weight: bold; }
+        
+        #notification {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(255, 0, 85, 0.9); padding: 10px 20px;
+            border-radius: 4px; font-weight: bold; letter-spacing: 1px;
+            display: none; transition: opacity 0.3s;
+        }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <div id="stats">
-            BANK: <span class="money-text">$<span id="money">300</span></span><br>
-            ESSENCE: <span class="essence-text" id="essence">0</span>/20
-            <div id="ritual-status" style="color: #ff0055; font-size: 0.8em; margin-top: 5px; display: none;">
-                🔴 RITUAL ACTIVE: MEGA DRILLS OVERCLOCKED
+        <div class="panel" id="stats">
+            <h2>The Tithe</h2>
+            <div class="stat">BANK: <span class="money-text">$<span id="money">500</span></span></div>
+            <div class="stat">ESSENCE: <span class="essence-text"><span id="essence">0</span>/50</span></div>
+            <div class="stat" style="color: #ff4444; margin-top: 10px;">TIME: <span id="timer">03:00</span></div>
+        </div>
+
+        <div class="panel" id="menu">
+            <h2>Blueprints</h2>
+            <button id="btn-drill" onclick="setTool('drill')">⛏️ DRILL ($50)</button>
+            <button id="btn-maw" onclick="setTool('maw')">👄 THE MAW ($200)</button>
         </div>
     </div>
 
-<div id="menu">
-    <button id="btn-drill" onclick="setTool('drill')">⛏️ DRILL ($50)</button>
-    <button id="btn-mega_drill" onclick="setTool('mega_drill')">🚜 MEGA DRILL ($800)</button>
-    <button id="btn-refinery" onclick="setTool('refinery')">🌀 REFINERY ($300)</button>
-    <button id="btn-purifier" onclick="setTool('purifier')">💎 PURIFIER ($500)</button>
-    <button id="btn-altar" onclick="setTool('altar')">🕯️ ALTAR ($2000)</button>
-    <button id="btn-maw" onclick="setTool('maw')">👄 THE MAW ($200)</button>
-</div>
-    </div>
-    
+    <div id="notification">CAN ONLY PLACE ON LEYLINES!</div>
 
     <canvas id="canvas"></canvas>
 
-    <script src="game.js"></script>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const TILE_SIZE = 50;
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // --- ROGUELIKE ENGINE STATE ---
+        let state = {
+            money: 500,
+            essence: 0,
+            selectedTool: null,
+            map: new Map(), // Holds our grid data
+            buildings: []
+        };
+
+        const CATALOG = {
+            drill: { cost: 50, type: 'drill' },
+            maw: { cost: 200, type: 'maw' }
+        };
+
+        // --- MAP GENERATION ---
+        function initMap() {
+            const cols = Math.floor(canvas.width / TILE_SIZE);
+            const rows = Math.floor(canvas.height / TILE_SIZE);
+
+            for (let x = 0; x < cols; x++) {
+                for (let y = 0; y < rows; y++) {
+                    // 10% chance for a tile to be a glowing Leyline
+                    const isLeyline = Math.random() < 0.10;
+                    state.map.set(`${x},${y}`, { 
+                        gridX: x, 
+                        gridY: y, 
+                        isLeyline: isLeyline,
+                        occupied: false 
+                    });
+                }
+            }
+        }
+
+        // --- CONTROLS ---
+        window.setTool = (t) => {
+            state.selectedTool = t;
+            document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+            if(document.getElementById(`btn-${t}`)) document.getElementById(`btn-${t}`).classList.add('active');
+        };
+
+        function showNotification(msg) {
+            const notif = document.getElementById('notification');
+            notif.innerText = msg;
+            notif.style.display = 'block';
+            setTimeout(() => notif.style.display = 'none', 2000);
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (!state.selectedTool) return;
+            
+            const gridX = Math.floor(e.clientX / TILE_SIZE);
+            const gridY = Math.floor(e.clientY / TILE_SIZE);
+            const tileKey = `${gridX},${gridY}`;
+            const tile = state.map.get(tileKey);
+
+            if (!tile || tile.occupied) return;
+
+            const config = CATALOG[state.selectedTool];
+
+            // RESTRICTION: Drills must go on Leylines
+            if (state.selectedTool === 'drill' && !tile.isLeyline) {
+                showNotification("DRILLS MUST BE PLACED ON LEYLINES!");
+                return;
+            }
+
+            if (state.money >= config.cost) {
+                state.money -= config.cost;
+                tile.occupied = true;
+                
+                state.buildings.push({
+                    type: state.selectedTool,
+                    x: gridX * TILE_SIZE,
+                    y: gridY * TILE_SIZE,
+                    cx: (gridX * TILE_SIZE) + (TILE_SIZE / 2),
+                    cy: (gridY * TILE_SIZE) + (TILE_SIZE / 2)
+                });
+
+                document.getElementById('money').innerText = state.money;
+            }
+        });
+
+        // --- RENDERING ---
+        function drawMap() {
+            // Draw subtle dot grid
+            ctx.fillStyle = '#333';
+            state.map.forEach(tile => {
+                ctx.beginPath();
+                ctx.arc(tile.gridX * TILE_SIZE + TILE_SIZE/2, tile.gridY * TILE_SIZE + TILE_SIZE/2, 2, 0, Math.PI*2);
+                ctx.fill();
+
+                // Draw pulsing Leylines
+                if (tile.isLeyline) {
+                    const pulse = 0.3 + Math.sin(Date.now() / 300) * 0.2;
+                    ctx.fillStyle = `rgba(188, 19, 254, ${pulse})`;
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = '#bc13fe';
+                    
+                    // Draw a crystalline diamond shape for the node
+                    const cx = tile.gridX * TILE_SIZE + TILE_SIZE/2;
+                    const cy = tile.gridY * TILE_SIZE + TILE_SIZE/2;
+                    ctx.beginPath();
+                    ctx.moveTo(cx, cy - 15);
+                    ctx.lineTo(cx + 15, cy);
+                    ctx.lineTo(cx, cy + 15);
+                    ctx.lineTo(cx - 15, cy);
+                    ctx.fill();
+                    ctx.shadowBlur = 0; // Reset shadow
+                }
+            });
+        }
+
+        function drawBuildings() {
+            state.buildings.forEach(b => {
+                if (b.type === 'drill') {
+                    // Metallic Gradient Drill
+                    const grad = ctx.createLinearGradient(b.x, b.y, b.x + TILE_SIZE, b.y + TILE_SIZE);
+                    grad.addColorStop(0, '#00ccff');
+                    grad.addColorStop(1, '#005588');
+                    
+                    ctx.fillStyle = grad;
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 2;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(b.cx, b.y + 5); 
+                    ctx.lineTo(b.x + TILE_SIZE - 5, b.y + TILE_SIZE - 5);
+                    ctx.lineTo(b.x + 5, b.y + TILE_SIZE - 5);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                } 
+                else if (b.type === 'maw') {
+                    // Pulsing Red Maw
+                    const grad = ctx.createRadialGradient(b.cx, b.cy, 5, b.cx, b.cy, TILE_SIZE/2);
+                    grad.addColorStop(0, '#ff0000');
+                    grad.addColorStop(1, '#440000');
+                    
+                    ctx.fillStyle = grad;
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = '#ff0000';
+                    ctx.beginPath();
+                    ctx.arc(b.cx, b.cy, TILE_SIZE/2 - 4, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                }
+            });
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawMap();
+            drawBuildings();
+            requestAnimationFrame(draw);
+        }
+
+        initMap();
+        draw();
+    </script>
 </body>
 </html>
