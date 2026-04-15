@@ -14,6 +14,8 @@ let state = {
     essence: 0,
     buildings: [],
     workers: [],
+    evilBobs: [],
+    bobTimer: 0,
     selectedTool: null,
     taxTimer: 0,
     ritualActive: false,
