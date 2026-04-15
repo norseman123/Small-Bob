@@ -175,9 +175,7 @@ function update() {
 }
 
 function draw() {
-    ctx.fillStyle = '#050505';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
+ctx.clearRect(0, 0, canvas.width, canvas.height);
     state.buildings.forEach(b => {
         ctx.shadowBlur = 10; ctx.shadowColor = b.color;
         ctx.fillStyle = b.color;
