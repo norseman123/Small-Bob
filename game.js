@@ -1,3 +1,6 @@
+// ==========================================
+// 1. DATA & STATE CONFIGURATION
+// ==========================================
 const TILE_SIZE = 40;
 
 const CATALOG = {
@@ -10,28 +13,38 @@ const CATALOG = {
 };
 
 let state = {
-    money: 500,
+    money: 1000, // Starting capital
     essence: 0,
     buildings: [],
     workers: [],
-    evilBobs: [],
-    bobTimer: 0,
-    selectedTool: null,
-    taxTimer: 0,
+    occupiedTiles: new Set(),
+    
+    // Ritual Variables
     ritualActive: false,
     ritualTimer: 0,
-    occupiedTiles: new Set() // Tracks "x,y" strings of taken tiles
+    
+    // Evil Bob Variables
+    evilBobs: [],
+    bobTimer: 0,
+
+    selectedTool: null,
+    taxTimer: 0
 };
 
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const moneyEl = document.getElementById('money');
 const essenceEl = document.getElementById('essence');
+const ritualStatus = document.getElementById('ritual-status');
 
+// Snap canvas to grid size
 canvas.width = Math.floor(window.innerWidth / TILE_SIZE) * TILE_SIZE;
 canvas.height = Math.floor(window.innerHeight / TILE_SIZE) * TILE_SIZE;
 
-// --- GRID HELPERS ---
+
+// ==========================================
+// 2. HELPER FUNCTIONS
+// ==========================================
 
 function getGridPos(val) {
     return Math.floor(val / TILE_SIZE) * TILE_SIZE;
@@ -65,7 +78,10 @@ function findAbsoluteNearest(origin, types) {
     });
 }
 
-// --- CONTROLS ---
+
+// ==========================================
+// 3. INPUT & UI CONTROLS
+// ==========================================
 
 window.setTool = (t) => {
     state.selectedTool = t;
@@ -74,20 +90,19 @@ window.setTool = (t) => {
 };
 
 canvas.addEventListener('mousedown', (e) => {
-
     // 1. CHECK FOR EVIL BOB CLICKS FIRST
     for (let i = state.evilBobs.length - 1; i >= 0; i--) {
         let bob = state.evilBobs[i];
-        // If you clicked within 20 pixels of Bob...
-        if (Math.hypot(e.clientX - bob.x, e.clientY - bob.y) < 20) {
-            state.evilBobs.splice(i, 1); // Delete Bob
-            state.money += 200;          // Take his stolen cash
-            state.essence += 2;          // Extract his soul
+        if (Math.hypot(e.clientX - bob.x, e.clientY - bob.y) < 25) { // 25px hit radius
+            state.evilBobs.splice(i, 1);
+            state.money += 200;
+            state.essence += 2;
             console.log("SMACKED EVIL BOB!");
-            return; // Stop the click right here so we don't place a building!
+            return; // Stop the click so we don't accidentally place a building!
         }
     }
-    
+
+    // 2. PLACE BUILDINGS
     if (!state.selectedTool) return;
     const config = CATALOG[state.selectedTool];
     const gridX = getGridPos(e.clientX);
@@ -97,7 +112,6 @@ canvas.addEventListener('mousedown', (e) => {
         state.money -= config.cost;
         markArea(gridX, gridY, config.size);
         
-        // Place building in the center of its grid footprint
         const offset = (config.size * TILE_SIZE) / 2;
         state.buildings.push({
             ...JSON.parse(JSON.stringify(config)),
@@ -110,38 +124,33 @@ canvas.addEventListener('mousedown', (e) => {
     }
 });
 
-// --- ENGINE ---
+
+// ==========================================
+// 4. THE CORE ENGINE
+// ==========================================
 
 function update() {
+    // --- TAXES ---
     state.taxTimer++;
     if (state.taxTimer > 60) {
-        // SCALING TAX: Every building increases the tax of all other buildings
         const complexityMult = 1 + (state.buildings.length * 0.05);
         const totalTax = state.buildings.reduce((sum, b) => sum + (b.tax || 0), 0) * complexityMult;
         state.money -= totalTax;
         state.taxTimer = 0;
     }
 
+    // --- RITUAL LOGIC ---
     if (state.ritualActive) {
         state.ritualTimer--;
-        if (state.ritualTimer <= 0) state.ritualActive = false;
+        if (state.ritualTimer <= 0) {
+            state.ritualActive = false;
+            if(ritualStatus) ritualStatus.style.display = 'none';
+        }
     }
 
-    state.buildings.forEach(b => {
-        if (b.type === 'drill' || b.type === 'mega_drill') {
-            b.timer++;
-            let speed = state.ritualActive ? b.speed / 2 : b.speed;
-            if (b.timer > speed) {
-                const target = findAbsoluteNearest(b, ['purifier', 'refinery', 'maw']);
-                if (target) {
-                    const count = (state.ritualActive && b.type === 'mega_drill') ? 2 : 1;
-                    for(let i=0; i<count; i++) {
-                        state.workers.push({ x: b.x, y: b.y, target, content: 'raw', originType: b.type, speed: 3 });
-                    }
-                    b.timer = 0;
-// --- EVIL BOB LOGIC ---
+    // --- EVIL BOB SPAWN & CHASE LOGIC ---
     state.bobTimer++;
-    // Bob spawns every ~15 seconds if you have more than $1,000
+    // Spawns every ~15 seconds if you have more than $1000
     if (state.bobTimer > 900 && state.money > 1000) {
         state.evilBobs.push({
             x: Math.random() * canvas.width,
@@ -155,12 +164,11 @@ function update() {
     for (let i = state.evilBobs.length - 1; i >= 0; i--) {
         let bob = state.evilBobs[i];
         
-        // Find the nearest Little Guy to eat
         if (state.workers.length > 0) {
             let targetWorker = state.workers.reduce((prev, curr) => {
-                const distPrev = Math.hypot(bob.x - prev.x, bob.y - prev.y);
-                const distCurr = Math.hypot(bob.x - curr.x, bob.y - curr.y);
-                return distCurr < distPrev ? curr : prev;
+                const d1 = Math.hypot(bob.x - prev.x, bob.y - prev.y);
+                const d2 = Math.hypot(bob.x - curr.x, bob.y - curr.y);
+                return d2 < d1 ? curr : prev;
             });
 
             let dx = targetWorker.x - bob.x;
@@ -168,16 +176,33 @@ function update() {
             let dist = Math.hypot(dx, dy);
 
             if (dist > 5) {
-                // Chase the worker!
                 bob.x += (dx / dist) * bob.speed;
                 bob.y += (dy / dist) * bob.speed;
             } else {
-                // HE CAUGHT ONE!
+                // Bob caught a worker!
                 state.workers.splice(state.workers.indexOf(targetWorker), 1);
-                state.money -= 50; // Steal money
+                state.money -= 50; // Penalty
             }
         }
     }
+
+    // --- BUILDING PRODUCTION ---
+    state.buildings.forEach(b => {
+        if (b.type === 'drill' || b.type === 'mega_drill') {
+            b.timer++;
+            let speed = state.ritualActive ? b.speed / 2 : b.speed;
+            if (b.timer > speed) {
+                const target = findAbsoluteNearest(b, ['purifier', 'refinery', 'maw']);
+                if (target) {
+                    const count = (state.ritualActive && b.type === 'mega_drill') ? 2 : 1;
+                    for(let i=0; i<count; i++) {
+                        state.workers.push({ x: b.x, y: b.y, target, content: 'raw', originType: b.type, speed: 3 });
+                    }
+                    b.timer = 0;
+                }
+            }
+        }
+
         if ((b.type === 'refinery' || b.type === 'purifier') && b.inventory.length > 0) {
             b.timer++;
             if (b.timer > b.speed) {
@@ -193,6 +218,7 @@ function update() {
         }
     });
 
+    // --- WORKER MOVEMENT ---
     for (let i = state.workers.length - 1; i >= 0; i--) {
         const w = state.workers[i];
         const dx = w.target.x - w.x;
@@ -203,6 +229,7 @@ function update() {
             w.x += (dx / dist) * w.speed;
             w.y += (dy / dist) * w.speed;
         } else {
+            // Arrival Logic
             if (w.target.type === 'maw') {
                 state.money += (w.content === 'refined') ? 120 : (CATALOG[w.originType]?.payout || 5);
             } else if (w.target.type === 'altar') {
@@ -210,8 +237,9 @@ function update() {
                     state.essence++;
                     if (state.essence >= 20 && !state.ritualActive) {
                         state.ritualActive = true;
-                        state.ritualTimer = 1200;
+                        state.ritualTimer = 1200; // 20 seconds at 60 FPS
                         state.essence = 0;
+                        if(ritualStatus) ritualStatus.style.display = 'block';
                     }
                 }
             } else if (w.target.inventory) {
@@ -221,16 +249,30 @@ function update() {
         }
     }
 
+    // --- UI UPDATES ---
     moneyEl.innerText = Math.floor(state.money);
     essenceEl.innerText = state.essence;
 }
 
+
+// ==========================================
+// 5. RENDERING
+// ==========================================
+
 function draw() {
-ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // CLEAR canvas so CSS grid shows through!
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw Buildings
     state.buildings.forEach(b => {
         ctx.shadowBlur = 10; ctx.shadowColor = b.color;
         ctx.fillStyle = b.color;
         
+        // Ritual glow effect
+        if (state.ritualActive && (b.type === 'altar' || b.type === 'mega_drill')) {
+            ctx.shadowBlur = 30 + Math.sin(Date.now() / 100) * 15;
+        }
+
         const drawSize = (b.size * TILE_SIZE) - 4;
         const drawX = b.gridX + 2;
         const drawY = b.gridY + 2;
@@ -251,12 +293,27 @@ ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.shadowBlur = 0;
     });
 
+    // Draw Workers
     state.workers.forEach(w => {
         ctx.fillStyle = w.content === 'essence' ? '#00f2ff' : (w.content === 'refined' ? '#e040fb' : 'white');
         ctx.fillRect(w.x-3, w.y-3, 6, 6);
     });
 
+    // Draw Evil Bobs
+    state.evilBobs.forEach(bob => {
+        ctx.fillStyle = '#ff0000';
+        ctx.shadowBlur = 15; ctx.shadowColor = '#ff0000';
+        ctx.fillRect(bob.x - bob.size/2, bob.y - bob.size/2, bob.size, bob.size);
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowBlur = 0;
+        ctx.fillRect(bob.x - 6, bob.y - 4, 4, 4); // Left eye
+        ctx.fillRect(bob.x + 2, bob.y - 4, 4, 4); // Right eye
+    });
+
     update();
     requestAnimationFrame(draw);
 }
+
+// Start the game loop
 draw();
