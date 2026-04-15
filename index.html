@@ -66,8 +66,7 @@
         <div class="panel" id="menu">
             <h2>Blueprints</h2>
             <button id="btn-drill" onclick="setTool('drill')">⛏️ DRILL ($50)</button>
-            <button id="btn-maw" onclick="setTool('maw')">👄 THE MAW ($200)</button>
-        </div>
+            </div>
     </div>
 
     <div id="notification">CAN ONLY PLACE ON LEYLINES!</div>
@@ -77,7 +76,9 @@
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        const TILE_SIZE = 50;
+        
+        // ZOOMED OUT: Smaller tiles mean more map fits on screen
+        const TILE_SIZE = 35; 
 
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
@@ -87,13 +88,12 @@
             money: 500,
             essence: 0,
             selectedTool: null,
-            map: new Map(), // Holds our grid data
+            map: new Map(), 
             buildings: []
         };
 
         const CATALOG = {
-            drill: { cost: 50, type: 'drill' },
-            maw: { cost: 200, type: 'maw' }
+            drill: { cost: 50, type: 'drill' }
         };
 
         // --- MAP GENERATION ---
@@ -101,18 +101,54 @@
             const cols = Math.floor(canvas.width / TILE_SIZE);
             const rows = Math.floor(canvas.height / TILE_SIZE);
 
+            // 1. Generate Terrain
             for (let x = 0; x < cols; x++) {
                 for (let y = 0; y < rows; y++) {
-                    // 10% chance for a tile to be a glowing Leyline
-                    const isLeyline = Math.random() < 0.10;
+                    const r = Math.random();
+                    let isLeyline = false;
+                    let isObstacle = false;
+
+                    if (r < 0.10) {
+                        isLeyline = true; // 10% chance for Leyline
+                    } else if (r < 0.25) {
+                        isObstacle = true; // 15% chance for impassable Void Rock
+                    }
+
                     state.map.set(`${x},${y}`, { 
                         gridX: x, 
                         gridY: y, 
                         isLeyline: isLeyline,
-                        occupied: false 
+                        isObstacle: isObstacle,
+                        occupied: isObstacle // Obstacles count as occupied!
                     });
                 }
             }
+
+            // 2. Pre-place The Maw in the center
+            const centerX = Math.floor(cols / 2);
+            const centerY = Math.floor(rows / 2);
+            
+            // Clear out any rocks or leylines directly under/around the Maw so it isn't trapped
+            for(let dx = -1; dx <= 1; dx++) {
+                for(let dy = -1; dy <= 1; dy++) {
+                    let tile = state.map.get(`${centerX+dx},${centerY+dy}`);
+                    if(tile) {
+                        tile.isObstacle = false;
+                        tile.isLeyline = false;
+                        tile.occupied = false;
+                    }
+                }
+            }
+
+            // Lock the center tile and place the building
+            state.map.get(`${centerX},${centerY}`).occupied = true;
+            state.buildings.push({
+                type: 'maw',
+                x: centerX * TILE_SIZE,
+                y: centerY * TILE_SIZE,
+                cx: (centerX * TILE_SIZE) + (TILE_SIZE / 2),
+                cy: (centerY * TILE_SIZE) + (TILE_SIZE / 2)
+            });
         }
 
         // --- CONTROLS ---
@@ -137,11 +173,17 @@
             const tileKey = `${gridX},${gridY}`;
             const tile = state.map.get(tileKey);
 
-            if (!tile || tile.occupied) return;
+            if (!tile) return;
+            
+            if (tile.isObstacle) {
+                showNotification("CANNOT BUILD ON VOID ROCKS!");
+                return;
+            }
+            
+            if (tile.occupied) return;
 
             const config = CATALOG[state.selectedTool];
 
-            // RESTRICTION: Drills must go on Leylines
             if (state.selectedTool === 'drill' && !tile.isLeyline) {
                 showNotification("DRILLS MUST BE PLACED ON LEYLINES!");
                 return;
@@ -165,30 +207,44 @@
 
         // --- RENDERING ---
         function drawMap() {
-            // Draw subtle dot grid
             ctx.fillStyle = '#333';
             state.map.forEach(tile => {
+                // Draw dots
                 ctx.beginPath();
-                ctx.arc(tile.gridX * TILE_SIZE + TILE_SIZE/2, tile.gridY * TILE_SIZE + TILE_SIZE/2, 2, 0, Math.PI*2);
+                ctx.arc(tile.gridX * TILE_SIZE + TILE_SIZE/2, tile.gridY * TILE_SIZE + TILE_SIZE/2, 1.5, 0, Math.PI*2);
                 ctx.fill();
 
                 // Draw pulsing Leylines
                 if (tile.isLeyline) {
                     const pulse = 0.3 + Math.sin(Date.now() / 300) * 0.2;
                     ctx.fillStyle = `rgba(188, 19, 254, ${pulse})`;
-                    ctx.shadowBlur = 15;
-                    ctx.shadowColor = '#bc13fe';
+                    ctx.shadowBlur = 15; ctx.shadowColor = '#bc13fe';
                     
-                    // Draw a crystalline diamond shape for the node
                     const cx = tile.gridX * TILE_SIZE + TILE_SIZE/2;
                     const cy = tile.gridY * TILE_SIZE + TILE_SIZE/2;
                     ctx.beginPath();
-                    ctx.moveTo(cx, cy - 15);
-                    ctx.lineTo(cx + 15, cy);
-                    ctx.lineTo(cx, cy + 15);
-                    ctx.lineTo(cx - 15, cy);
+                    ctx.moveTo(cx, cy - 10); ctx.lineTo(cx + 10, cy);
+                    ctx.lineTo(cx, cy + 10); ctx.lineTo(cx - 10, cy);
                     ctx.fill();
-                    ctx.shadowBlur = 0; // Reset shadow
+                    ctx.shadowBlur = 0; 
+                }
+
+                // Draw Void Rocks (Obstacles)
+                if (tile.isObstacle) {
+                    ctx.fillStyle = '#111118';
+                    ctx.strokeStyle = '#222233';
+                    ctx.lineWidth = 2;
+                    const rx = tile.gridX * TILE_SIZE;
+                    const ry = tile.gridY * TILE_SIZE;
+                    
+                    // Draw a jagged rock shape
+                    ctx.beginPath();
+                    ctx.moveTo(rx + 5, ry + TILE_SIZE - 5);
+                    ctx.lineTo(rx + TILE_SIZE/2, ry + 5);
+                    ctx.lineTo(rx + TILE_SIZE - 5, ry + TILE_SIZE - 5);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
                 }
             });
         }
@@ -196,36 +252,36 @@
         function drawBuildings() {
             state.buildings.forEach(b => {
                 if (b.type === 'drill') {
-                    // Metallic Gradient Drill
                     const grad = ctx.createLinearGradient(b.x, b.y, b.x + TILE_SIZE, b.y + TILE_SIZE);
-                    grad.addColorStop(0, '#00ccff');
-                    grad.addColorStop(1, '#005588');
+                    grad.addColorStop(0, '#00ccff'); grad.addColorStop(1, '#005588');
                     
-                    ctx.fillStyle = grad;
-                    ctx.strokeStyle = '#fff';
-                    ctx.lineWidth = 2;
-                    
+                    ctx.fillStyle = grad; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
                     ctx.beginPath();
                     ctx.moveTo(b.cx, b.y + 5); 
                     ctx.lineTo(b.x + TILE_SIZE - 5, b.y + TILE_SIZE - 5);
                     ctx.lineTo(b.x + 5, b.y + TILE_SIZE - 5);
-                    ctx.closePath();
-                    ctx.fill();
-                    ctx.stroke();
+                    ctx.closePath(); ctx.fill(); ctx.stroke();
                 } 
                 else if (b.type === 'maw') {
-                    // Pulsing Red Maw
-                    const grad = ctx.createRadialGradient(b.cx, b.cy, 5, b.cx, b.cy, TILE_SIZE/2);
-                    grad.addColorStop(0, '#ff0000');
-                    grad.addColorStop(1, '#440000');
+                    // Pulsing Red Maw (Slightly larger and more imposing now)
+                    const grad = ctx.createRadialGradient(b.cx, b.cy, 5, b.cx, b.cy, TILE_SIZE);
+                    grad.addColorStop(0, '#ff0055');
+                    grad.addColorStop(0.5, '#aa0000');
+                    grad.addColorStop(1, '#220000');
                     
                     ctx.fillStyle = grad;
-                    ctx.shadowBlur = 20;
+                    ctx.shadowBlur = 30 + Math.sin(Date.now() / 200) * 10;
                     ctx.shadowColor = '#ff0000';
                     ctx.beginPath();
-                    ctx.arc(b.cx, b.cy, TILE_SIZE/2 - 4, 0, Math.PI*2);
+                    ctx.arc(b.cx, b.cy, TILE_SIZE * 0.8, 0, Math.PI*2);
                     ctx.fill();
+                    
+                    // The "Mouth"
+                    ctx.fillStyle = '#000';
                     ctx.shadowBlur = 0;
+                    ctx.beginPath();
+                    ctx.arc(b.cx, b.cy, TILE_SIZE * 0.3, 0, Math.PI*2);
+                    ctx.fill();
                 }
             });
         }
