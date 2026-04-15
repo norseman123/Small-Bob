@@ -17,6 +17,7 @@ let state = {
     essence: 0,
     buildings: [],
     workers: [],
+    
     occupiedTiles: new Set(),
     
     // Ritual Variables
@@ -26,6 +27,8 @@ let state = {
     // Evil Bob Variables
     evilBobs: [],
     bobTimer: 0,
+    benevolentBills: [],
+    billTimer: 0,
 
     selectedTool: null,
     taxTimer: 0
