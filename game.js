@@ -74,6 +74,20 @@ window.setTool = (t) => {
 };
 
 canvas.addEventListener('mousedown', (e) => {
+
+    // 1. CHECK FOR EVIL BOB CLICKS FIRST
+    for (let i = state.evilBobs.length - 1; i >= 0; i--) {
+        let bob = state.evilBobs[i];
+        // If you clicked within 20 pixels of Bob...
+        if (Math.hypot(e.clientX - bob.x, e.clientY - bob.y) < 20) {
+            state.evilBobs.splice(i, 1); // Delete Bob
+            state.money += 200;          // Take his stolen cash
+            state.essence += 2;          // Extract his soul
+            console.log("SMACKED EVIL BOB!");
+            return; // Stop the click right here so we don't place a building!
+        }
+    }
+    
     if (!state.selectedTool) return;
     const config = CATALOG[state.selectedTool];
     const gridX = getGridPos(e.clientX);
