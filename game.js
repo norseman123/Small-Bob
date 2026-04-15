@@ -139,10 +139,45 @@ function update() {
                         state.workers.push({ x: b.x, y: b.y, target, content: 'raw', originType: b.type, speed: 3 });
                     }
                     b.timer = 0;
-                }
+// --- EVIL BOB LOGIC ---
+    state.bobTimer++;
+    // Bob spawns every ~15 seconds if you have more than $1,000
+    if (state.bobTimer > 900 && state.money > 1000) {
+        state.evilBobs.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            speed: 1.5,
+            size: 20
+        });
+        state.bobTimer = 0;
+    }
+
+    for (let i = state.evilBobs.length - 1; i >= 0; i--) {
+        let bob = state.evilBobs[i];
+        
+        // Find the nearest Little Guy to eat
+        if (state.workers.length > 0) {
+            let targetWorker = state.workers.reduce((prev, curr) => {
+                const distPrev = Math.hypot(bob.x - prev.x, bob.y - prev.y);
+                const distCurr = Math.hypot(bob.x - curr.x, bob.y - curr.y);
+                return distCurr < distPrev ? curr : prev;
+            });
+
+            let dx = targetWorker.x - bob.x;
+            let dy = targetWorker.y - bob.y;
+            let dist = Math.hypot(dx, dy);
+
+            if (dist > 5) {
+                // Chase the worker!
+                bob.x += (dx / dist) * bob.speed;
+                bob.y += (dy / dist) * bob.speed;
+            } else {
+                // HE CAUGHT ONE!
+                state.workers.splice(state.workers.indexOf(targetWorker), 1);
+                state.money -= 50; // Steal money
             }
         }
-
+    }
         if ((b.type === 'refinery' || b.type === 'purifier') && b.inventory.length > 0) {
             b.timer++;
             if (b.timer > b.speed) {
