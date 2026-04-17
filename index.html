@@ -379,7 +379,7 @@
                         if (b.type === 'splitter' && !w.hasSplit) return true;
                         if (w.type === 'blood' && b.type === 'vein_splitter' && !w.hasSplit) return true;
                         if (b.type === 'accelerator' && w.speedMult === 1) return true;
-                        if (b.type === 'compressor') return true;
+                        if (b.type === 'compressor' && w.type !== 'dense' && w.type !== 'abyssal') return true;
                         return false;
                     });
 
