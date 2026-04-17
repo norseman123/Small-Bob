@@ -1,116 +1,17 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Occult Factory: Descent</title>
-    <style>
-        body { margin: 0; overflow: hidden; background: #050508; font-family: 'Courier New', Courier, monospace; color: #fff; }
-        canvas { display: block; }
-        
-        #ui {
-            position: absolute; top: 20px; left: 20px; z-index: 10;
-            pointer-events: none; display: flex; flex-direction: column; gap: 20px;
-        }
-
-        .panel {
-            background: rgba(10, 10, 15, 0.85);
-            border: 1px solid #333; border-top: 3px solid #bc13fe;
-            padding: 15px 20px; box-shadow: 0 4px 25px rgba(188, 19, 254, 0.2);
-            pointer-events: auto; backdrop-filter: blur(8px); min-width: 200px;
-        }
-
-        h2 { margin: 0 0 10px 0; font-size: 1.2rem; color: #fff; text-transform: uppercase; letter-spacing: 2px;}
-        .stat { font-size: 1.1rem; margin-bottom: 5px; }
-        .money-text { color: #ffd700; font-weight: bold; text-shadow: 0 0 5px rgba(255, 215, 0, 0.5); }
-        .essence-text { color: #00f2ff; font-weight: bold; text-shadow: 0 0 5px rgba(0, 242, 255, 0.5); }
-        .greed-text { color: #ff0055; font-size: 0.8rem; }
-
-        button.blueprint-btn {
-            display: block; width: 100%; background: #1a1a24; color: #aaa;
-            border: 1px solid #444; border-left: 3px solid #555;
-            padding: 10px 15px; margin-bottom: 8px; text-align: left; cursor: pointer;
-            transition: all 0.2s ease; font-family: inherit; font-size: 1rem;
-        }
-
-        button.blueprint-btn:hover { background: #252535; color: #fff; border-left-color: #bc13fe; box-shadow: 0 0 10px rgba(188, 19, 254, 0.3); }
-        button.blueprint-btn.active {
-            background: #2a1b38; border-color: #bc13fe; border-left: 5px solid #bc13fe; color: #fff;
-            box-shadow: inset 0 0 10px rgba(188, 19, 254, 0.2);
-        }
-        
-        #notification {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            background: rgba(255, 0, 85, 0.9); padding: 10px 20px; border-radius: 4px; 
-            font-weight: bold; display: none; z-index: 20; box-shadow: 0 0 15px #ff0055;
-        }
-
-        #draft-overlay {
-            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(5, 5, 8, 0.95); backdrop-filter: blur(12px);
-            display: none; flex-direction: column; align-items: center; justify-content: center; 
-            z-index: 9999;
-        }
-
-        .cards-container { display: flex; gap: 30px; padding: 20px; flex-wrap: wrap; justify-content: center; max-width: 900px;}
-        .draft-card {
-            background: #111; border: 2px solid #444; border-radius: 8px;
-            width: 250px; padding: 20px; text-align: center; cursor: pointer;
-            transition: all 0.3s ease; position: relative; overflow: hidden;
-        }
-        .draft-card::before {
-            content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
-            background: linear-gradient(to right, transparent, rgba(255,255,255,0.1), transparent);
-            transform: skewX(-25deg); transition: 0.5s;
-        }
-        .draft-card:hover::before { left: 200%; }
-        .draft-card:hover { transform: translateY(-10px); border-color: #bc13fe; box-shadow: 0 10px 20px rgba(188, 19, 254, 0.2); }
-        .draft-card .type { font-size: 0.8rem; color: #888; text-transform: uppercase; margin-bottom: 10px; }
-
-        #floor-transition {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #fff; pointer-events: none; opacity: 0; transition: opacity 0.6s; z-index: 10000;
-        }
-    </style>
-</head>
-<body>
-
-    <div id="floor-transition"></div>
-
-    <div id="ui">
-        <div class="panel" id="stats">
-            <h2>Lair <span id="wave">1</span></h2>
-            <div class="stat">BANK: <span class="money-text">$<span id="money">500</span></span></div>
-            <div class="stat">ESSENCE: <span class="essence-text"><span id="essence">0</span>/<span id="quota">50</span></span></div>
-            <div class="stat greed-text">GREED MULT: x<span id="greed-mult">1.0</span></div>
-        </div>
-
-        <div class="panel" id="menu">
-            <h2>Blueprints</h2>
-            <div id="blueprint-list">
-                <button id="btn-drill" class="blueprint-btn" onclick="setTool('drill')">⛏️ DRILL ($50)</button>
-                <button id="btn-purifier" class="blueprint-btn" onclick="setTool('purifier')">🔮 PURIFIER ($150)</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="draft-overlay">
-        <h1 id="draft-title" style="text-shadow: 0 0 15px #bc13fe;">TITHE MET.</h1>
-        <p id="greed-info" style="color: #ffd700; margin-bottom: 20px;"></p>
-        <div class="cards-container" id="draft-cards"></div>
-    </div>
-
-    <div id="notification">CAN ONLY PLACE ON LEYLINES!</div>
-
-    <canvas id="canvas"></canvas>
-
-    <script>
+<script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         const TILE_SIZE = 35; 
 
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
+
+        // --- PERFORMANCE CACHING ---
+        // We draw the static background (grid and rocks) once to an offscreen canvas
+        const bgCanvas = document.createElement('canvas');
+        bgCanvas.width = canvas.width;
+        bgCanvas.height = canvas.height;
+        const bgCtx = bgCanvas.getContext('2d');
 
         // --- CONSTANTS ---
         const STARTING_CASH = 500;
@@ -136,20 +37,19 @@
             workers: [],
             paused: false,
             unlockedBlueprints: ['drill', 'purifier'],
-            globalTime: 0 // Used for visual pulsing effects
+            globalTime: 0,
+            buildingsChanged: false // Used to tell wisps to recalculate pathing
         };
 
-        // NEW: Expanded catalog with advanced buildings
         const CATALOG = {
             drill: { cost: 50, type: 'drill', name: '⛏️ DRILL' },
             purifier: { cost: 150, type: 'purifier', name: '🔮 PURIFIER' },
             splitter: { cost: 300, type: 'splitter', name: '➗ SPLITTER' },
             accelerator: { cost: 200, type: 'accelerator', name: '⏩ ACCELERATOR' },
-            siphon: { cost: 400, type: 'siphon', name: '🩸 SIPHON' }, // Makes Blood Wisps
-            altar: { cost: 750, type: 'altar', name: '👁️ ALTAR' }     // Combines Blood + Void
+            siphon: { cost: 400, type: 'siphon', name: '🩸 SIPHON' }, 
+            altar: { cost: 750, type: 'altar', name: '👁️ ALTAR' }     
         };
 
-        // NEW: Expanded Relic and Blueprint pool
         const DRAFT_POOL = [
             { id: 'relic_drill', type: 'Relic', name: 'OVERCLOCKED GEARS', desc: 'Drills spawn Wisps 25% faster.' },
             { id: 'relic_agility', type: 'Relic', name: 'SLIPPERY SOULS', desc: 'Wisps curve around rocks 50% faster.' },
@@ -162,6 +62,30 @@
         ];
 
         let ownedRelics = [];
+
+        function renderStaticBackground() {
+            bgCtx.fillStyle = '#050508'; 
+            bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+            
+            // Faint Grid
+            bgCtx.strokeStyle = '#ffffff05';
+            bgCtx.lineWidth = 1;
+            bgCtx.beginPath();
+            for(let i=0; i<bgCanvas.width; i+=TILE_SIZE) { bgCtx.moveTo(i,0); bgCtx.lineTo(i,bgCanvas.height); }
+            for(let i=0; i<bgCanvas.height; i+=TILE_SIZE) { bgCtx.moveTo(0,i); bgCtx.lineTo(bgCanvas.width,i); }
+            bgCtx.stroke();
+
+            // Rocks (Obstacles)
+            bgCtx.fillStyle = '#111116';
+            bgCtx.strokeStyle = '#22222d';
+            bgCtx.lineWidth = 1;
+            state.map.forEach(tile => {
+                if (tile.isObstacle) {
+                    bgCtx.fillRect(tile.gridX*TILE_SIZE+2, tile.gridY*TILE_SIZE+2, TILE_SIZE-4, TILE_SIZE-4);
+                    bgCtx.strokeRect(tile.gridX*TILE_SIZE+2, tile.gridY*TILE_SIZE+2, TILE_SIZE-4, TILE_SIZE-4);
+                }
+            });
+        }
 
         function initMap() {
             state.map.clear();
@@ -194,6 +118,9 @@
                 type: 'maw', x: centerX * TILE_SIZE, y: centerY * TILE_SIZE,
                 cx: (centerX * TILE_SIZE) + (TILE_SIZE / 2), cy: (centerY * TILE_SIZE) + (TILE_SIZE / 2)
             });
+
+            renderStaticBackground();
+            state.buildingsChanged = true;
         }
 
         window.setTool = (t) => {
@@ -226,15 +153,14 @@
                 state.money -= cost;
                 tile.occupied = true;
                 
-                // Initialize building with custom properties if needed (like inventory for Altar)
-                let newBuilding = {
+                state.buildings.push({
                     type: state.selectedTool, timer: 0,
                     x: gridX * TILE_SIZE, y: gridY * TILE_SIZE,
                     cx: (gridX * TILE_SIZE) + (TILE_SIZE / 2), cy: (gridY * TILE_SIZE) + (TILE_SIZE / 2),
-                    inventory: { void: 0, blood: 0 } // Used by Altar
-                };
+                    inventory: { void: 0, blood: 0 } 
+                });
                 
-                state.buildings.push(newBuilding);
+                state.buildingsChanged = true; // Tell wisps to find new paths
                 updateUIStats();
             } else {
                 showNotification("NOT ENOUGH FUNDS!");
@@ -299,7 +225,7 @@
                 state.wave++;
                 state.money = STARTING_CASH;
                 state.essence = 0;
-                state.quota += 50 + (state.wave * 15); // Scaling difficulty
+                state.quota += 50 + (state.wave * 15);
                 state.buildings = [];
                 state.workers = [];
                 initMap();
@@ -325,18 +251,17 @@
                         b.timer = 0;
                         state.workers.push({
                             x: b.cx, y: b.cy, vx: (Math.random()-0.5), vy: (Math.random()-0.5),
-                            trail: [], type: 'gold', hasSplit: false, speedMult: 1 
+                            trail: [], type: 'gold', hasSplit: false, speedMult: 1, target: null 
                         });
                     }
                 }
-                // NEW: Siphon creates Blood wisps slowly
                 if (b.type === 'siphon') {
                     b.timer++;
                     if (b.timer >= runStats.drillSpeed * 1.5) { 
                         b.timer = 0;
                         state.workers.push({
                             x: b.cx, y: b.cy, vx: (Math.random()-0.5), vy: (Math.random()-0.5),
-                            trail: [], type: 'blood', hasSplit: false, speedMult: 0.9 
+                            trail: [], type: 'blood', hasSplit: false, speedMult: 0.9, target: null
                         });
                     }
                 }
@@ -344,41 +269,41 @@
 
             let newWorkers = [];
             
-            // Wisp Logic & Pathing
+            // Wisp Logic
             for (let i = state.workers.length - 1; i >= 0; i--) {
                 let w = state.workers[i];
-                let currentTarget = targetMaw;
+                
+                // OPTIMIZATION: Only find a new target if we don't have one, or if the buildings changed
+                if (!w.target || state.buildingsChanged) {
+                    w.target = targetMaw;
+                    let validInteractables = interactables.filter(b => {
+                        if (w.type === 'gold' && b.type === 'purifier') return true;
+                        if ((w.type === 'void' || w.type === 'blood') && b.type === 'altar') return true;
+                        if (b.type === 'splitter' && !w.hasSplit) return true;
+                        if (b.type === 'accelerator' && w.speedMult === 1) return true;
+                        return false;
+                    });
 
-                // NEW: Intelligent Targeting System based on Wisp Type
-                let validInteractables = interactables.filter(b => {
-                    if (w.type === 'gold' && b.type === 'purifier') return true;
-                    if ((w.type === 'void' || w.type === 'blood') && b.type === 'altar') return true;
-                    if (b.type === 'splitter' && !w.hasSplit) return true;
-                    if (b.type === 'accelerator' && w.speedMult === 1) return true;
-                    return false;
-                });
-
-                if (validInteractables.length > 0) {
-                    let nearestInt = validInteractables[0];
-                    let dInt = Math.hypot(nearestInt.cx - w.x, nearestInt.cy - w.y);
-                    for(let j=1; j<validInteractables.length; j++){
-                        let d = Math.hypot(validInteractables[j].cx - w.x, validInteractables[j].cy - w.y);
-                        if(d < dInt) { dInt = d; nearestInt = validInteractables[j]; }
+                    if (validInteractables.length > 0) {
+                        let nearestInt = validInteractables[0];
+                        let dInt = Math.hypot(nearestInt.cx - w.x, nearestInt.cy - w.y);
+                        for(let j=1; j<validInteractables.length; j++){
+                            let d = Math.hypot(validInteractables[j].cx - w.x, validInteractables[j].cy - w.y);
+                            if(d < dInt) { dInt = d; nearestInt = validInteractables[j]; }
+                        }
+                        let dMaw = Math.hypot(targetMaw.cx - w.x, targetMaw.cy - w.y);
+                        if (dInt < dMaw) w.target = nearestInt;
                     }
-                    let dMaw = Math.hypot(targetMaw.cx - w.x, targetMaw.cy - w.y);
-                    if (dInt < dMaw) currentTarget = nearestInt;
                 }
 
-                let dx = currentTarget.cx - w.x; 
-                let dy = currentTarget.cy - w.y; 
+                let dx = w.target.cx - w.x; 
+                let dy = w.target.cy - w.y; 
                 let dist = Math.hypot(dx, dy);
 
-                // Collision / Processing
                 if (dist < 15) {
-                    if (currentTarget.type === 'maw') {
+                    if (w.target.type === 'maw') {
                         let baseMult = ownedRelics.includes('relic_abyss') ? 1.5 : 1;
-                        let finalMoney = 0;
-                        let finalEssence = 0;
+                        let finalMoney = 0; let finalEssence = 0;
 
                         if (w.type === 'gold') finalMoney = (BASE_SELL_VALUE * runStats.greedMult * baseMult);
                         else if (w.type === 'void') finalEssence = (runStats.wispCapacity * baseMult);
@@ -388,46 +313,40 @@
                             finalMoney = (BASE_SELL_VALUE * 4 * runStats.greedMult * baseMult);
                         }
 
-                        state.money += finalMoney;
-                        state.essence += finalEssence;
+                        state.money += finalMoney; state.essence += finalEssence;
                         
                         if (state.essence >= state.quota && !state.paused) triggerDraft();
                         state.workers.splice(i, 1); updateUIStats(); continue;
                     } 
-                    else if (currentTarget.type === 'purifier') {
-                        w.type = 'void';
+                    else if (w.target.type === 'purifier') {
+                        w.type = 'void'; w.target = null; // Clear target so it finds the maw/next building
                     } 
-                    else if (currentTarget.type === 'splitter' && !w.hasSplit) {
-                        w.hasSplit = true; w.vx *= -1;
-                        newWorkers.push({...w, trail: [], vx: -w.vx, vy: -w.vy});
+                    else if (w.target.type === 'splitter' && !w.hasSplit) {
+                        w.hasSplit = true; w.vx *= -1; w.target = null;
+                        newWorkers.push({...w, trail: [], vx: -w.vx, vy: -w.vy, target: null});
                     }
-                    else if (currentTarget.type === 'accelerator') {
-                        w.speedMult = 2;
+                    else if (w.target.type === 'accelerator') {
+                        w.speedMult = 2; w.target = null;
                     }
-                    // NEW: Combiner logic
-                    else if (currentTarget.type === 'altar') {
-                        currentTarget.inventory[w.type]++;
-                        state.workers.splice(i, 1); // consume the wisp
+                    else if (w.target.type === 'altar') {
+                        w.target.inventory[w.type]++;
+                        state.workers.splice(i, 1);
                         
-                        // Check if we have ingredients for a fusion
-                        if (currentTarget.inventory.void >= 1 && currentTarget.inventory.blood >= 1) {
-                            currentTarget.inventory.void--;
-                            currentTarget.inventory.blood--;
+                        if (w.target.inventory.void >= 1 && w.target.inventory.blood >= 1) {
+                            w.target.inventory.void--; w.target.inventory.blood--;
                             newWorkers.push({
-                                x: currentTarget.cx, y: currentTarget.cy, 
+                                x: w.target.cx, y: w.target.cy, 
                                 vx: (Math.random()-0.5), vy: (Math.random()-0.5),
-                                trail: [], type: 'abyssal', hasSplit: false, speedMult: 1.2
+                                trail: [], type: 'abyssal', hasSplit: false, speedMult: 1.2, target: null
                             });
                         }
-                        continue; // Skip movement calc since it was absorbed
+                        continue; 
                     }
                 }
 
-                // Movement
                 let speed = runStats.wispSpeed * w.speedMult;
                 let dvx = (dx/dist) * speed; let dvy = (dy/dist) * speed;
                 
-                // Obstacle avoidance
                 let lx = w.x + dvx*6; let ly = w.y + dvy*6;
                 let tile = state.map.get(`${Math.floor(lx/TILE_SIZE)},${Math.floor(ly/TILE_SIZE)}`);
                 if (tile && tile.isObstacle) { let t = dvx; dvx = -dvy; dvy = t; }
@@ -439,43 +358,30 @@
                 if (w.trail.length > 8) w.trail.shift();
             }
             state.workers.push(...newWorkers);
+            state.buildingsChanged = false; // Reset the flag
         }
 
-        // --- GRAPHICS UPGRADES ---
         function draw() {
             update();
             
-            // Clear screen
+            // OPTIMIZATION: Draw the pre-rendered background canvas instead of looping through all tiles/lines
             ctx.globalCompositeOperation = 'source-over';
-            ctx.fillStyle = '#050508'; 
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Faint Grid for immersion
-            ctx.strokeStyle = '#ffffff05';
-            ctx.lineWidth = 1;
-            for(let i=0; i<canvas.width; i+=TILE_SIZE) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke(); }
-            for(let i=0; i<canvas.height; i+=TILE_SIZE) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(canvas.width,i); ctx.stroke(); }
+            ctx.drawImage(bgCanvas, 0, 0);
 
-            // Turn on additive blending for "Neon/Bloom" magic effects
             ctx.globalCompositeOperation = 'lighter';
 
+            // Draw Pulsing Leylines
             state.map.forEach(tile => {
                 if (tile.isLeyline) {
-                    let pulse = Math.sin(state.globalTime + tile.gridX) * 0.15 + 0.2; // Pulsing effect
+                    let pulse = Math.sin(state.globalTime + tile.gridX) * 0.15 + 0.2;
                     ctx.fillStyle = `rgba(188, 19, 254, ${pulse})`;
                     ctx.beginPath(); ctx.arc(tile.gridX*TILE_SIZE+TILE_SIZE/2, tile.gridY*TILE_SIZE+TILE_SIZE/2, 10, 0, Math.PI*2); ctx.fill();
                 }
-                if (tile.isObstacle) {
-                    ctx.globalCompositeOperation = 'source-over'; // Draw solid rocks normally
-                    ctx.fillStyle = '#111116';
-                    ctx.strokeStyle = '#22222d';
-                    ctx.fillRect(tile.gridX*TILE_SIZE+2, tile.gridY*TILE_SIZE+2, TILE_SIZE-4, TILE_SIZE-4);
-                    ctx.strokeRect(tile.gridX*TILE_SIZE+2, tile.gridY*TILE_SIZE+2, TILE_SIZE-4, TILE_SIZE-4);
-                    ctx.globalCompositeOperation = 'lighter';
-                }
             });
 
+            // Draw Buildings
             state.buildings.forEach(b => {
+                // Buildings still get real shadowBlur because there are few of them
                 ctx.shadowBlur = 15;
                 if (b.type === 'drill') { ctx.fillStyle = '#00f2ff'; ctx.shadowColor = '#00f2ff'; }
                 else if (b.type === 'siphon') { ctx.fillStyle = '#ff003c'; ctx.shadowColor = '#ff003c'; }
@@ -489,7 +395,6 @@
                 ctx.arc(b.cx, b.cy, b.type==='maw' || b.type==='altar' ? 14 : 10, 0, Math.PI*2);
                 ctx.fill();
 
-                // Draw Altar Inventory indicators
                 if (b.type === 'altar') {
                     ctx.shadowBlur = 0;
                     if(b.inventory.void > 0) { ctx.fillStyle='#bc13fe'; ctx.beginPath(); ctx.arc(b.cx - 6, b.cy - 6, 3, 0, Math.PI*2); ctx.fill(); }
@@ -497,32 +402,35 @@
                 }
             });
 
+            // Draw Wisps
+            // OPTIMIZATION: Removed shadowBlur entirely. Faking the glow using layered opacity.
+            ctx.shadowBlur = 0;
             state.workers.forEach(w => {
-                // Color assignments for new Wisps
-                let color = '#ffd700'; let shadowColor = '#ffd700';
-                if (w.type === 'void') { color = '#bc13fe'; shadowColor = '#bc13fe'; }
-                if (w.type === 'blood') { color = '#ff003c'; shadowColor = '#ff003c'; }
-                if (w.type === 'abyssal') { color = '#ffffff'; shadowColor = '#00f2ff'; } // High contrast
+                let color = '#ffd700'; let glowColor = 'rgba(255, 215, 0, 0.2)';
+                if (w.type === 'void') { color = '#bc13fe'; glowColor = 'rgba(188, 19, 254, 0.2)'; }
+                if (w.type === 'blood') { color = '#ff003c'; glowColor = 'rgba(255, 0, 60, 0.2)'; }
+                if (w.type === 'abyssal') { color = '#ffffff'; glowColor = 'rgba(0, 242, 255, 0.3)'; } 
 
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = shadowColor;
-                ctx.strokeStyle = color + '66'; // Add transparency to trail hex
+                // Fake Glow Circle (much faster than shadowBlur)
+                ctx.fillStyle = glowColor;
+                ctx.beginPath(); ctx.arc(w.x, w.y, w.type === 'abyssal' ? 12 : 8, 0, Math.PI*2); ctx.fill();
+
+                ctx.strokeStyle = color + '66'; 
                 ctx.lineWidth = w.type === 'abyssal' ? 3 : 2;
 
                 if (w.trail.length > 1) {
                     ctx.beginPath(); ctx.moveTo(w.trail[0].x, w.trail[0].y);
                     w.trail.forEach(pt => ctx.lineTo(pt.x, pt.y)); ctx.stroke();
                 }
+                
+                // Solid Core
                 ctx.fillStyle = color;
                 ctx.beginPath(); ctx.arc(w.x, w.y, w.type === 'abyssal' ? 4 : 2.5, 0, Math.PI*2); ctx.fill();
             });
 
-            ctx.shadowBlur = 0; // Reset for next frame
             requestAnimationFrame(draw);
         }
 
         initMap();
         draw();
     </script>
-</body>
-</html>
