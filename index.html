@@ -1,4 +1,133 @@
-<script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Occult Factory: Descent</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #050508; font-family: 'Courier New', Courier, monospace; color: #fff; user-select: none; }
+        canvas { display: block; }
+        
+        #ui {
+            position: absolute; top: 20px; left: 20px; z-index: 10;
+            pointer-events: none; display: flex; flex-direction: column; gap: 20px;
+        }
+
+        .panel {
+            background: rgba(10, 10, 15, 0.85);
+            border: 1px solid #333; border-top: 3px solid #bc13fe;
+            padding: 15px 20px; box-shadow: 0 4px 25px rgba(188, 19, 254, 0.2);
+            pointer-events: auto; backdrop-filter: blur(8px); min-width: 200px;
+        }
+
+        h2 { margin: 0 0 10px 0; font-size: 1.2rem; color: #fff; text-transform: uppercase; letter-spacing: 2px;}
+        .stat { font-size: 1.1rem; margin-bottom: 5px; }
+        .money-text { color: #ffd700; font-weight: bold; text-shadow: 0 0 5px rgba(255, 215, 0, 0.5); }
+        .essence-text { color: #00f2ff; font-weight: bold; text-shadow: 0 0 5px rgba(0, 242, 255, 0.5); }
+        .greed-text { color: #ff0055; font-size: 0.8rem; }
+        .hint-text { color: #888; font-size: 0.8rem; margin-top: 10px; font-style: italic; }
+
+        button.blueprint-btn {
+            display: block; width: 100%; background: #1a1a24; color: #aaa;
+            border: 1px solid #444; border-left: 3px solid #555;
+            padding: 10px 15px; margin-bottom: 8px; text-align: left; cursor: pointer;
+            transition: all 0.2s ease; font-family: inherit; font-size: 1rem;
+        }
+
+        button.blueprint-btn:hover { background: #252535; color: #fff; border-left-color: #bc13fe; box-shadow: 0 0 10px rgba(188, 19, 254, 0.3); }
+        button.blueprint-btn.active {
+            background: #2a1b38; border-color: #bc13fe; border-left: 5px solid #bc13fe; color: #fff;
+            box-shadow: inset 0 0 10px rgba(188, 19, 254, 0.2);
+        }
+        
+        #notification {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(255, 0, 85, 0.9); padding: 10px 20px; border-radius: 4px; 
+            font-weight: bold; display: none; z-index: 20; box-shadow: 0 0 15px #ff0055;
+        }
+
+        .overlay {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(5, 5, 8, 0.95); backdrop-filter: blur(12px);
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            z-index: 9999;
+        }
+
+        .cards-container { display: flex; gap: 30px; padding: 20px; flex-wrap: wrap; justify-content: center; max-width: 1000px;}
+        .card {
+            background: #111; border: 2px solid #444; border-radius: 8px;
+            width: 280px; padding: 20px; text-align: center; cursor: pointer;
+            transition: all 0.3s ease; position: relative; overflow: hidden;
+        }
+        .card:hover { transform: translateY(-10px); border-color: #bc13fe; box-shadow: 0 10px 20px rgba(188, 19, 254, 0.2); }
+        .card .type { font-size: 0.8rem; color: #888; text-transform: uppercase; margin-bottom: 10px; }
+        .card .exclusive { color: #ff0055; font-weight: bold; margin-top: 15px; font-size: 0.9rem;}
+
+        #floor-transition {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #fff; pointer-events: none; opacity: 0; transition: opacity 0.6s; z-index: 10000;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="floor-transition"></div>
+
+    <div id="start-overlay" class="overlay">
+        <h1 style="text-shadow: 0 0 15px #bc13fe; font-size: 2.5rem;">CHOOSE YOUR SECT</h1>
+        <p style="color: #aaa; margin-bottom: 20px;">Your sect determines your starting blueprints and exclusive Relic.</p>
+        <div class="cards-container">
+            <div class="card" onclick="startGame('alchemists')">
+                <div class="type">Balanced</div>
+                <h3>THE ALCHEMISTS</h3>
+                <p>Starts with: Drill, Purifier</p>
+                <p style="color: #ffd700;">Starting Funds: $500</p>
+                <div class="exclusive">👑 RELIC: Philosopher's Stone<br><span style="color:#aaa; font-weight:normal;">Void Wisps grant 3x Essence.</span></div>
+            </div>
+            <div class="card" onclick="startGame('bloodbound')" style="border-color: #ff003c;">
+                <div class="type">Volatile</div>
+                <h3>THE BLOODBOUND</h3>
+                <p>Starts with: Siphon, Splitter</p>
+                <p style="color: #ffd700;">Starting Funds: $800</p>
+                <div class="exclusive">👑 RELIC: Vampiric Pact<br><span style="color:#aaa; font-weight:normal;">Blood Wisps grant 2 Essence in addition to their cash value.</span></div>
+            </div>
+            <div class="card" onclick="startGame('machinists')" style="border-color: #00ff41;">
+                <div class="type">Spatial</div>
+                <h3>THE MACHINISTS</h3>
+                <p>Starts with: Drill, Accelerator</p>
+                <p style="color: #ffd700;">Starting Funds: $600</p>
+                <div class="exclusive">👑 RELIC: Perpetual Overdrive<br><span style="color:#aaa; font-weight:normal;">Accelerators duplicate wisps instantly.</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="ui" style="display: none;">
+        <div class="panel" id="stats">
+            <h2>Lair <span id="wave">1</span></h2>
+            <div class="stat">BANK: <span class="money-text">$<span id="money">0</span></span></div>
+            <div class="stat">ESSENCE: <span class="essence-text"><span id="essence">0</span>/<span id="quota">50</span></span></div>
+            <div class="stat greed-text">GREED MULT: x<span id="greed-mult">1.0</span></div>
+        </div>
+
+        <div class="panel" id="menu">
+            <h2>Blueprints</h2>
+            <div id="blueprint-list">
+                </div>
+            <div class="hint-text">Right-Click a building to IGNITE it (4x speed, burns away).</div>
+        </div>
+    </div>
+
+    <div id="draft-overlay" class="overlay" style="display: none;">
+        <h1 id="draft-title" style="text-shadow: 0 0 15px #bc13fe;">TITHE MET.</h1>
+        <p id="greed-info" style="color: #ffd700; margin-bottom: 20px;"></p>
+        <div class="cards-container" id="draft-cards"></div>
+    </div>
+
+    <div id="notification">CAN ONLY PLACE ON LEYLINES!</div>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         const TILE_SIZE = 35; 
@@ -6,18 +135,13 @@
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        // --- PERFORMANCE CACHING ---
-        // We draw the static background (grid and rocks) once to an offscreen canvas
         const bgCanvas = document.createElement('canvas');
         bgCanvas.width = canvas.width;
         bgCanvas.height = canvas.height;
         const bgCtx = bgCanvas.getContext('2d');
 
-        // --- CONSTANTS ---
-        const STARTING_CASH = 500;
         const BASE_SELL_VALUE = 15;
 
-        // --- GAME STATE ---
         let runStats = {
             wispSpeed: 3.5,
             wispAgility: 0.08, 
@@ -27,7 +151,7 @@
         };
 
         let state = {
-            money: STARTING_CASH,
+            money: 0,
             essence: 0,
             quota: 50,
             wave: 1,
@@ -35,10 +159,10 @@
             map: new Map(), 
             buildings: [],
             workers: [],
-            paused: false,
-            unlockedBlueprints: ['drill', 'purifier'],
+            paused: true, // Starts paused for Sect selection
+            unlockedBlueprints: [],
             globalTime: 0,
-            buildingsChanged: false // Used to tell wisps to recalculate pathing
+            buildingsChanged: false
         };
 
         const CATALOG = {
@@ -62,12 +186,51 @@
         ];
 
         let ownedRelics = [];
+        let startingFunds = 0;
+
+        // --- NEW: SECT SELECTION LOGIC ---
+        window.startGame = (sect) => {
+            document.getElementById('start-overlay').style.display = 'none';
+            document.getElementById('ui').style.display = 'flex';
+            
+            if (sect === 'alchemists') {
+                startingFunds = 500;
+                state.unlockedBlueprints = ['drill', 'purifier'];
+                ownedRelics.push('relic_philosopher');
+            } else if (sect === 'bloodbound') {
+                startingFunds = 800;
+                state.unlockedBlueprints = ['siphon', 'splitter'];
+                ownedRelics.push('relic_vampiric');
+            } else if (sect === 'machinists') {
+                startingFunds = 600;
+                state.unlockedBlueprints = ['drill', 'accelerator'];
+                ownedRelics.push('relic_overdrive');
+            }
+
+            state.money = startingFunds;
+            
+            // Build UI
+            const bpList = document.getElementById('blueprint-list');
+            bpList.innerHTML = '';
+            state.unlockedBlueprints.forEach(bp => {
+                const btn = document.createElement('button');
+                btn.id = `btn-${bp}`;
+                btn.className = 'blueprint-btn';
+                btn.innerText = `${CATALOG[bp].name} ($${CATALOG[bp].cost})`;
+                btn.onclick = () => setTool(bp);
+                bpList.appendChild(btn);
+            });
+
+            state.paused = false;
+            initMap();
+            updateUIStats();
+            draw();
+        };
 
         function renderStaticBackground() {
             bgCtx.fillStyle = '#050508'; 
             bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
             
-            // Faint Grid
             bgCtx.strokeStyle = '#ffffff05';
             bgCtx.lineWidth = 1;
             bgCtx.beginPath();
@@ -75,12 +238,10 @@
             for(let i=0; i<bgCanvas.height; i+=TILE_SIZE) { bgCtx.moveTo(0,i); bgCtx.lineTo(bgCanvas.width,i); }
             bgCtx.stroke();
 
-            // Rocks (Obstacles)
-            bgCtx.fillStyle = '#111116';
-            bgCtx.strokeStyle = '#22222d';
-            bgCtx.lineWidth = 1;
             state.map.forEach(tile => {
                 if (tile.isObstacle) {
+                    bgCtx.fillStyle = '#111116';
+                    bgCtx.strokeStyle = '#22222d';
                     bgCtx.fillRect(tile.gridX*TILE_SIZE+2, tile.gridY*TILE_SIZE+2, TILE_SIZE-4, TILE_SIZE-4);
                     bgCtx.strokeRect(tile.gridX*TILE_SIZE+2, tile.gridY*TILE_SIZE+2, TILE_SIZE-4, TILE_SIZE-4);
                 }
@@ -96,10 +257,11 @@
                 for (let y = 0; y < rows; y++) {
                     const r = Math.random();
                     let isLeyline = r < 0.12;
+                    let isCorrupted = isLeyline && Math.random() < 0.25; // 25% of leylines are corrupted
                     let isObstacle = !isLeyline && r < 0.22;
                     state.map.set(`${x},${y}`, { 
                         gridX: x, gridY: y, 
-                        isLeyline: isLeyline, isObstacle: isObstacle, occupied: isObstacle 
+                        isLeyline: isLeyline, isCorrupted: isCorrupted, isObstacle: isObstacle, occupied: isObstacle 
                     });
                 }
             }
@@ -109,14 +271,15 @@
             for(let dx = -1; dx <= 1; dx++) {
                 for(let dy = -1; dy <= 1; dy++) {
                     let tile = state.map.get(`${centerX+dx},${centerY+dy}`);
-                    if(tile) { tile.isObstacle = false; tile.isLeyline = false; tile.occupied = false; }
+                    if(tile) { tile.isObstacle = false; tile.isLeyline = false; tile.isCorrupted = false; tile.occupied = false; }
                 }
             }
 
             state.map.get(`${centerX},${centerY}`).occupied = true;
             state.buildings.push({
                 type: 'maw', x: centerX * TILE_SIZE, y: centerY * TILE_SIZE,
-                cx: (centerX * TILE_SIZE) + (TILE_SIZE / 2), cy: (centerY * TILE_SIZE) + (TILE_SIZE / 2)
+                cx: (centerX * TILE_SIZE) + (TILE_SIZE / 2), cy: (centerY * TILE_SIZE) + (TILE_SIZE / 2),
+                isIgnited: false
             });
 
             renderStaticBackground();
@@ -137,8 +300,24 @@
             document.getElementById('greed-mult').innerText = runStats.greedMult.toFixed(2);
         }
 
+        // --- NEW: RIGHT CLICK TO IGNITE ---
+        canvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            if (state.paused) return;
+            const gridX = Math.floor(e.clientX / TILE_SIZE);
+            const gridY = Math.floor(e.clientY / TILE_SIZE);
+            
+            // Find building at this location
+            let b = state.buildings.find(bld => bld.x === gridX * TILE_SIZE && bld.y === gridY * TILE_SIZE && bld.type !== 'maw');
+            if (b && !b.isIgnited) {
+                b.isIgnited = true;
+                b.life = 900; // ~15 seconds at 60fps
+                showNotification("BUILDING IGNITED! (4x Speed, Meltdown Imminent)");
+            }
+        });
+
         canvas.addEventListener('mousedown', (e) => {
-            if (state.paused || !state.selectedTool) return;
+            if (e.button !== 0 || state.paused || !state.selectedTool) return; // Only Left Click
             const gridX = Math.floor(e.clientX / TILE_SIZE);
             const gridY = Math.floor(e.clientY / TILE_SIZE);
             const tile = state.map.get(`${gridX},${gridY}`);
@@ -157,10 +336,13 @@
                     type: state.selectedTool, timer: 0,
                     x: gridX * TILE_SIZE, y: gridY * TILE_SIZE,
                     cx: (gridX * TILE_SIZE) + (TILE_SIZE / 2), cy: (gridY * TILE_SIZE) + (TILE_SIZE / 2),
-                    inventory: { void: 0, blood: 0 } 
+                    inventory: { void: 0, blood: 0 },
+                    onCorrupted: tile.isCorrupted, // Mark if it's on a corrupted leyline
+                    isIgnited: false,
+                    life: 0
                 });
                 
-                state.buildingsChanged = true; // Tell wisps to find new paths
+                state.buildingsChanged = true;
                 updateUIStats();
             } else {
                 showNotification("NOT ENOUGH FUNDS!");
@@ -175,7 +357,7 @@
 
         function triggerDraft() {
             state.paused = true;
-            let profit = Math.max(0, state.money - STARTING_CASH);
+            let profit = Math.max(0, state.money - startingFunds);
             let greedGain = (profit / 100) * 0.05;
             runStats.greedMult += greedGain;
 
@@ -192,7 +374,7 @@
             container.innerHTML = '';
             choices.forEach(choice => {
                 const card = document.createElement('div');
-                card.className = 'draft-card';
+                card.className = 'card';
                 card.innerHTML = `<div class="type">${choice.type}</div><h3>${choice.name}</h3><p>${choice.desc}</p>`;
                 card.onclick = () => selectDraft(choice);
                 container.appendChild(card);
@@ -223,7 +405,7 @@
             
             setTimeout(() => {
                 state.wave++;
-                state.money = STARTING_CASH;
+                state.money = startingFunds; // Reset to faction starting funds
                 state.essence = 0;
                 state.quota += 50 + (state.wave * 15);
                 state.buildings = [];
@@ -243,10 +425,29 @@
             const targetMaw = state.buildings.find(b => b.type === 'maw');
             const interactables = state.buildings.filter(b => b.type !== 'maw' && b.type !== 'drill' && b.type !== 'siphon');
 
-            // Generator Logic
-            state.buildings.forEach(b => {
+            // --- IGNITION DECAY ---
+            for (let i = state.buildings.length - 1; i >= 0; i--) {
+                let b = state.buildings[i];
+                if (b.isIgnited) {
+                    b.life--;
+                    if (b.life <= 0) {
+                        // Free the tile and destroy building
+                        let tile = state.map.get(`${Math.floor(b.x/TILE_SIZE)},${Math.floor(b.y/TILE_SIZE)}`);
+                        if (tile) tile.occupied = false;
+                        state.buildings.splice(i, 1);
+                        state.buildingsChanged = true;
+                        continue;
+                    }
+                }
+
+                // Generator Logic
+                // Calculate Speed Multipliers
+                let speedMult = 1;
+                if (b.onCorrupted) speedMult *= 2; // Corrupted Leyline buff
+                if (b.isIgnited) speedMult *= 4;    // Ignition buff
+
                 if (b.type === 'drill') {
-                    b.timer++;
+                    b.timer += speedMult;
                     if (b.timer >= runStats.drillSpeed) {
                         b.timer = 0;
                         state.workers.push({
@@ -256,7 +457,7 @@
                     }
                 }
                 if (b.type === 'siphon') {
-                    b.timer++;
+                    b.timer += speedMult;
                     if (b.timer >= runStats.drillSpeed * 1.5) { 
                         b.timer = 0;
                         state.workers.push({
@@ -265,16 +466,15 @@
                         });
                     }
                 }
-            });
+            }
 
             let newWorkers = [];
             
-            // Wisp Logic
             for (let i = state.workers.length - 1; i >= 0; i--) {
                 let w = state.workers[i];
                 
-                // OPTIMIZATION: Only find a new target if we don't have one, or if the buildings changed
-                if (!w.target || state.buildingsChanged) {
+                // Target acquisition
+                if (!w.target || !state.buildings.includes(w.target) || state.buildingsChanged) {
                     w.target = targetMaw;
                     let validInteractables = interactables.filter(b => {
                         if (w.type === 'gold' && b.type === 'purifier') return true;
@@ -306,8 +506,11 @@
                         let finalMoney = 0; let finalEssence = 0;
 
                         if (w.type === 'gold') finalMoney = (BASE_SELL_VALUE * runStats.greedMult * baseMult);
-                        else if (w.type === 'void') finalEssence = (runStats.wispCapacity * baseMult);
-                        else if (w.type === 'blood') finalMoney = (BASE_SELL_VALUE * 2.5 * runStats.greedMult * baseMult);
+                        else if (w.type === 'void') finalEssence = (runStats.wispCapacity * baseMult * (ownedRelics.includes('relic_philosopher') ? 3 : 1));
+                        else if (w.type === 'blood') {
+                            finalMoney = (BASE_SELL_VALUE * 2.5 * runStats.greedMult * baseMult);
+                            if (ownedRelics.includes('relic_vampiric')) finalEssence = 2; // Vampiric Pact
+                        }
                         else if (w.type === 'abyssal') {
                             finalEssence = (runStats.wispCapacity * 4 * baseMult);
                             finalMoney = (BASE_SELL_VALUE * 4 * runStats.greedMult * baseMult);
@@ -319,19 +522,32 @@
                         state.workers.splice(i, 1); updateUIStats(); continue;
                     } 
                     else if (w.target.type === 'purifier') {
-                        w.type = 'void'; w.target = null; // Clear target so it finds the maw/next building
+                        w.type = 'void'; w.target = null;
+                        
+                        // Ignited Purifiers double process speed (instantly skip travel animation)
+                        if (w.target.isIgnited) w.speedMult += 1.5; 
                     } 
                     else if (w.target.type === 'splitter' && !w.hasSplit) {
                         w.hasSplit = true; w.vx *= -1; w.target = null;
                         newWorkers.push({...w, trail: [], vx: -w.vx, vy: -w.vy, target: null});
+                        
+                        // Ignited splitters spawn a THIRD wisp
+                        if (w.target.isIgnited) newWorkers.push({...w, trail: [], vx: w.vy, vy: -w.vx, target: null});
                     }
                     else if (w.target.type === 'accelerator') {
                         w.speedMult = 2; w.target = null;
+                        if (w.target.isIgnited) w.speedMult = 4;
+                        // Machinist Relic: Duplicate on accelerate
+                        if (ownedRelics.includes('relic_overdrive') && !w.hasSplit) {
+                            w.hasSplit = true;
+                            newWorkers.push({...w, trail: [], vx: -w.vx, vy: -w.vy, target: null});
+                        }
                     }
                     else if (w.target.type === 'altar') {
                         w.target.inventory[w.type]++;
                         state.workers.splice(i, 1);
                         
+                        let req = w.target.isIgnited ? 0.5 : 1; // Ignited altars only need half resources!
                         if (w.target.inventory.void >= 1 && w.target.inventory.blood >= 1) {
                             w.target.inventory.void--; w.target.inventory.blood--;
                             newWorkers.push({
@@ -358,30 +574,29 @@
                 if (w.trail.length > 8) w.trail.shift();
             }
             state.workers.push(...newWorkers);
-            state.buildingsChanged = false; // Reset the flag
+            state.buildingsChanged = false;
         }
 
         function draw() {
-            update();
+            if (!state.paused) update();
             
-            // OPTIMIZATION: Draw the pre-rendered background canvas instead of looping through all tiles/lines
             ctx.globalCompositeOperation = 'source-over';
             ctx.drawImage(bgCanvas, 0, 0);
 
             ctx.globalCompositeOperation = 'lighter';
 
-            // Draw Pulsing Leylines
+            // Draw Leylines
             state.map.forEach(tile => {
                 if (tile.isLeyline) {
                     let pulse = Math.sin(state.globalTime + tile.gridX) * 0.15 + 0.2;
-                    ctx.fillStyle = `rgba(188, 19, 254, ${pulse})`;
+                    // NEW: Corrupted Leylines glow red
+                    ctx.fillStyle = tile.isCorrupted ? `rgba(255, 0, 60, ${pulse})` : `rgba(188, 19, 254, ${pulse})`;
                     ctx.beginPath(); ctx.arc(tile.gridX*TILE_SIZE+TILE_SIZE/2, tile.gridY*TILE_SIZE+TILE_SIZE/2, 10, 0, Math.PI*2); ctx.fill();
                 }
             });
 
             // Draw Buildings
             state.buildings.forEach(b => {
-                // Buildings still get real shadowBlur because there are few of them
                 ctx.shadowBlur = 15;
                 if (b.type === 'drill') { ctx.fillStyle = '#00f2ff'; ctx.shadowColor = '#00f2ff'; }
                 else if (b.type === 'siphon') { ctx.fillStyle = '#ff003c'; ctx.shadowColor = '#ff003c'; }
@@ -395,15 +610,31 @@
                 ctx.arc(b.cx, b.cy, b.type==='maw' || b.type==='altar' ? 14 : 10, 0, Math.PI*2);
                 ctx.fill();
 
+                // Draw Altar Inventory indicators
                 if (b.type === 'altar') {
                     ctx.shadowBlur = 0;
                     if(b.inventory.void > 0) { ctx.fillStyle='#bc13fe'; ctx.beginPath(); ctx.arc(b.cx - 6, b.cy - 6, 3, 0, Math.PI*2); ctx.fill(); }
                     if(b.inventory.blood > 0) { ctx.fillStyle='#ff003c'; ctx.beginPath(); ctx.arc(b.cx + 6, b.cy - 6, 3, 0, Math.PI*2); ctx.fill(); }
                 }
+
+                // --- NEW: Ignition visuals ---
+                if (b.isIgnited) {
+                    ctx.shadowColor = '#ff6a00';
+                    ctx.shadowBlur = 20;
+                    ctx.strokeStyle = `rgba(255, 106, 0, ${Math.abs(Math.sin(state.globalTime * 5))})`; // Flickering fire ring
+                    ctx.lineWidth = 3;
+                    ctx.beginPath(); ctx.arc(b.cx, b.cy, 18, 0, Math.PI*2); ctx.stroke();
+                    
+                    // Health bar (Life indicator)
+                    ctx.shadowBlur = 0;
+                    ctx.fillStyle = '#333';
+                    ctx.fillRect(b.x + 2, b.y + TILE_SIZE - 6, TILE_SIZE - 4, 4);
+                    ctx.fillStyle = '#ff6a00';
+                    ctx.fillRect(b.x + 2, b.y + TILE_SIZE - 6, (TILE_SIZE - 4) * (b.life / 900), 4);
+                }
             });
 
             // Draw Wisps
-            // OPTIMIZATION: Removed shadowBlur entirely. Faking the glow using layered opacity.
             ctx.shadowBlur = 0;
             state.workers.forEach(w => {
                 let color = '#ffd700'; let glowColor = 'rgba(255, 215, 0, 0.2)';
@@ -411,7 +642,6 @@
                 if (w.type === 'blood') { color = '#ff003c'; glowColor = 'rgba(255, 0, 60, 0.2)'; }
                 if (w.type === 'abyssal') { color = '#ffffff'; glowColor = 'rgba(0, 242, 255, 0.3)'; } 
 
-                // Fake Glow Circle (much faster than shadowBlur)
                 ctx.fillStyle = glowColor;
                 ctx.beginPath(); ctx.arc(w.x, w.y, w.type === 'abyssal' ? 12 : 8, 0, Math.PI*2); ctx.fill();
 
@@ -423,14 +653,16 @@
                     w.trail.forEach(pt => ctx.lineTo(pt.x, pt.y)); ctx.stroke();
                 }
                 
-                // Solid Core
                 ctx.fillStyle = color;
                 ctx.beginPath(); ctx.arc(w.x, w.y, w.type === 'abyssal' ? 4 : 2.5, 0, Math.PI*2); ctx.fill();
             });
 
+            // Only request next frame if we aren't waiting on the main menu
             requestAnimationFrame(draw);
         }
 
-        initMap();
+        // Initialize empty to start
         draw();
     </script>
+</body>
+</html>
