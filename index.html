@@ -128,6 +128,7 @@
             altar: { cost: 750, type: 'altar', name: '👁️ FUSION ALTAR' },
             tether: { cost: 25, type: 'tether', name: '🧲 TETHER' },
             compressor: { cost: 500, type: 'compressor', name: '📦 COMPRESSOR' },
+            // Sect Exclusives
             aether_shrine: { cost: 400, type: 'aether_shrine', name: '💠 AETHER SHRINE' },
             flesh_vat: { cost: 350, type: 'flesh_vat', name: '🫀 FLESH VAT' },
             arc_furnace: { cost: 450, type: 'arc_furnace', name: '⚡ ARC FURNACE' }
@@ -244,6 +245,7 @@
             setTimeout(() => notif.style.display = 'none', 2000);
         }
 
+        // --- INTERACTION LOGIC (BUILD, SELL, IGNITE) ---
         canvas.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             if (state.paused) return;
@@ -297,7 +299,7 @@
                     type: state.selectedTool, timer: 0,
                     x: gridX * TILE_SIZE, y: gridY * TILE_SIZE,
                     cx: (gridX * TILE_SIZE) + (TILE_SIZE / 2), cy: (gridY * TILE_SIZE) + (TILE_SIZE / 2),
-                    inventory: { void: 0, blood: 0, gold: 0, soul: 0, dense: 0, stored: 0 },
+                    inventory: { void: 0, blood: 0, gold: 0, soul: 0, stored: 0 },
                     onCorrupted: tile.isCorrupted, isIgnited: false, life: 0, speedMod: 1, toggle: false,
                     placedAt: Date.now() 
                 });
@@ -305,6 +307,7 @@
             } else { showNotification("NOT ENOUGH FUNDS!"); }
         });
 
+        // --- GAME LOOP ---
         function update() {
             if (state.paused) return;
             state.globalTime += 0.05;
@@ -312,6 +315,7 @@
             const targetMaw = state.buildings.find(b => b.type === 'maw');
             const interactables = state.buildings.filter(b => b.type !== 'maw' && !['drill', 'siphon', 'aether_pump', 'quantum_bore', 'soul_well', 'aether_shrine', 'arc_furnace'].includes(b.type));
 
+            // Building Logic & Ignitions
             for (let i = state.buildings.length - 1; i >= 0; i--) {
                 let b = state.buildings[i];
                 let speedMult = b.onCorrupted ? 2 : 1;
@@ -320,6 +324,7 @@
                     speedMult *= b.speedMod;
                     b.life--;
 
+                    // Alchemist Aura of Purity - Transmutes Gold to Void, and Aether to Astral
                     if (state.sect === 'alchemists' && state.globalTime % 1 < 0.1) {
                         state.workers.forEach(w => {
                             let dist = Math.hypot(w.x - b.cx, w.y - b.cy);
@@ -330,10 +335,12 @@
                         });
                     }
 
+                    // Burnout Events
                     if (b.life <= 0) {
                         let tile = state.map.get(`${Math.floor(b.x/TILE_SIZE)},${Math.floor(b.y/TILE_SIZE)}`);
                         if (tile) tile.occupied = false;
                         
+                        // Bloodbound Sacrifice
                         if (state.sect === 'bloodbound') {
                             if (b.type === 'flesh_vat') {
                                 let count = Math.max(1, b.inventory.stored);
@@ -343,10 +350,12 @@
                             }
                         }
                         
+                        // Machinist Chain Reaction
                         if (state.sect === 'machinists') {
                             state.buildings.forEach(otherB => {
                                 if (!otherB.isIgnited && otherB.type !== 'maw' && Math.hypot(otherB.cx - b.cx, otherB.cy - b.cy) < TILE_SIZE * 1.5) {
                                     otherB.isIgnited = true; otherB.life = 450; otherB.speedMod = 2.5;
+                                    // Arc Furnace Special Interaction
                                     if (otherB.type === 'arc_furnace') {
                                         for(let k=0; k<3; k++) state.workers.push({ x: otherB.cx, y: otherB.cy, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4, trail: [], type: 'plasma', hasSplit: false, speedMult: 2.5, target: null });
                                     }
@@ -359,6 +368,7 @@
                     }
                 }
 
+                // Spawners
                 if (b.type === 'drill') {
                     b.timer += speedMult;
                     if (b.timer >= runStats.drillSpeed) { b.timer = 0; state.workers.push({ x: b.cx, y: b.cy, vx: 0, vy: 0, trail: [], type: 'gold', hasSplit: false, speedMult: 1, target: null }); }
@@ -400,6 +410,7 @@
 
             let newWorkers = [];
             
+            // Wisp Logic
             for (let i = state.workers.length - 1; i >= 0; i--) {
                 let w = state.workers[i];
                 
@@ -410,11 +421,11 @@
                         if (b.type === 'flesh_vat') return true; 
                         if (w.type === 'gold' && b.type === 'purifier') return true;
                         if (w.type === 'void' && b.type === 'gilder') return true;
-                        if (['void', 'blood', 'gold', 'soul', 'dense'].includes(w.type) && b.type === 'altar') return true;
+                        if (['void', 'blood', 'gold', 'soul'].includes(w.type) && b.type === 'altar') return true;
                         if (b.type === 'splitter' && !w.hasSplit) return true;
                         if (w.type === 'blood' && b.type === 'vein_splitter' && !w.hasSplit) return true;
                         if (b.type === 'accelerator' && w.speedMult === 1) return true;
-                        if (b.type === 'compressor' && !['dense', 'abyssal', 'crimson', 'eclipse', 'astral', 'ichor', 'plasma', 'omega'].includes(w.type)) return true; 
+                        if (b.type === 'compressor' && w.type !== 'dense' && w.type !== 'abyssal') return true; 
                         return false;
                     });
 
@@ -433,15 +444,18 @@
 
                 if (dist < 15) {
                     if (w.target.type === 'maw') {
-                        let val = w.type === 'dense' ? 5 : (w.type === 'abyssal' ? 4 : (w.type === 'crimson' ? 10 : (w.type === 'astral' ? 25 : (w.type === 'ichor' ? 15 : (w.type === 'plasma' ? 3 : (w.type === 'omega' ? 50 : 1)))))));
+                        // Value Multipliers
+                        let val = w.type === 'dense' ? 5 : (w.type === 'abyssal' ? 4 : (w.type === 'crimson' ? 10 : (w.type === 'astral' ? 25 : (w.type === 'ichor' ? 15 : (w.type === 'plasma' ? 3 : 1)))));
                         
-                        if (['gold', 'blood', 'dense', 'abyssal', 'crimson', 'eclipse', 'soul', 'astral', 'ichor', 'plasma', 'omega'].includes(w.type)) {
+                        // Money Processing
+                        if (['gold', 'blood', 'dense', 'abyssal', 'crimson', 'eclipse', 'soul', 'astral', 'ichor', 'plasma'].includes(w.type)) {
                             let baseCash = (w.type === 'soul') ? 5 : (w.type === 'aether' ? 0 : BASE_SELL_VALUE);
                             state.money += baseCash * val * runStats.greedMult * (w.type === 'blood' ? 2.5 : 1);
                         }
                         
-                        if (['void', 'dense', 'abyssal', 'eclipse', 'soul', 'aether', 'astral', 'ichor', 'plasma', 'omega'].includes(w.type) || (w.type === 'blood' && state.sect === 'bloodbound')) {
-                            let essenceVal = (w.type === 'soul') ? 2 : (w.type === 'aether' ? 3 : (w.type === 'astral' ? 8 : (w.type === 'ichor' ? 5 : (w.type === 'omega' ? 15 : 1))));
+                        // Essence Processing
+                        if (['void', 'dense', 'abyssal', 'eclipse', 'soul', 'aether', 'astral', 'ichor', 'plasma'].includes(w.type) || (w.type === 'blood' && state.sect === 'bloodbound')) {
+                            let essenceVal = (w.type === 'soul') ? 2 : (w.type === 'aether' ? 3 : (w.type === 'astral' ? 8 : (w.type === 'ichor' ? 5 : 1)));
                             state.essence += runStats.wispCapacity * essenceVal * val * (state.sect === 'alchemists' && w.type === 'void' ? 3 : 1);
                         }
 
@@ -459,11 +473,9 @@
                         newWorkers.push({...w, trail: [], vx: -w.vx, vy: -w.vy, target: null});
                     }
                     else if (w.target.type === 'vein_splitter' && w.type === 'blood' && !w.hasSplit) {
-                        // FIX APPLIED HERE: Adjust life before clearing the target
-                        w.hasSplit = true; w.vx *= -1;
-                        w.target.life = w.target.isIgnited ? w.target.life : 10; 
-                        w.target = null;
+                        w.hasSplit = true; w.vx *= -1; w.target = null;
                         newWorkers.push({...w, trail: [], vx: -w.vx, vy: -w.vy, target: null});
+                        w.target.life = w.target.isIgnited ? w.target.life : 10; 
                     }
                     else if (w.target.type === 'accelerator') { w.speedMult = 2; w.target = null; }
                     else if (w.target.type === 'compressor') {
@@ -483,7 +495,6 @@
                         if (inv.void >= 1 && inv.blood >= 1) { inv.void--; inv.blood--; spawnType = 'abyssal'; } 
                         else if (inv.gold >= 1 && inv.blood >= 1) { inv.gold--; inv.blood--; spawnType = 'crimson'; } 
                         else if (inv.gold >= 1 && inv.void >= 1) { inv.gold--; inv.void--; spawnType = 'eclipse'; }
-                        else if (inv.dense >= 1 && inv.soul >= 1) { inv.dense--; inv.soul--; spawnType = 'omega'; }
 
                         if (spawnType) {
                             newWorkers.push({ x: w.target.cx, y: w.target.cy, vx: 0, vy: 0, trail: [], type: spawnType, hasSplit: false, speedMult: 1.2, target: null });
@@ -510,6 +521,7 @@
             runStats.greedMult += (profit / 100) * 0.05;
             document.getElementById('draft-overlay').style.display = 'flex';
             
+            // Generate Draft Pool including Sect Exclusives
             let availablePool = DRAFT_POOL.filter(item => !state.unlockedBlueprints.includes(item.blueprintId));
             if (CLASS_DRAFT_POOL[state.sect]) {
                 let classPool = CLASS_DRAFT_POOL[state.sect].filter(item => !state.unlockedBlueprints.includes(item.blueprintId));
@@ -521,6 +533,7 @@
             const container = document.getElementById('draft-cards'); container.innerHTML = '';
             choices.forEach(c => {
                 const card = document.createElement('div'); card.className = 'card';
+                // Highlight exclusive cards
                 if (c.type === 'Exclusive Blueprint') { card.style.borderColor = '#ff0055'; card.style.boxShadow = '0 0 15px rgba(255, 0, 85, 0.3)'; }
                 
                 card.innerHTML = `<div class="type" style="color:${c.type === 'Exclusive Blueprint' ? '#ff0055' : '#888'}">${c.type}</div><h3>${c.name}</h3><p>${c.desc}</p>`;
@@ -595,16 +608,15 @@
                 if (w.type === 'crimson') { color = '#8b0000'; glowColor = 'rgba(255, 0, 0, 0.4)'; }
                 if (w.type === 'eclipse') { color = '#111111'; glowColor = 'rgba(188, 19, 254, 0.6)'; } 
                 if (w.type === 'aether') { color = '#aaddff'; glowColor = 'rgba(170, 221, 255, 0.3)'; }
-                if (w.type === 'astral') { color = '#ffffff'; glowColor = 'rgba(255, 0, 170, 0.8)'; } 
+                if (w.type === 'astral') { color = '#ffffff'; glowColor = 'rgba(255, 0, 170, 0.8)'; } // Pink aura
                 if (w.type === 'ichor') { color = '#00ff88'; glowColor = 'rgba(0, 255, 136, 0.4)'; }
                 if (w.type === 'plasma') { color = '#e5ff00'; glowColor = 'rgba(229, 255, 0, 0.5)'; }
-                if (w.type === 'omega') { color = '#ffffff'; glowColor = 'rgba(255, 255, 255, 0.8)'; }
 
-                let size = ['abyssal', 'crimson', 'eclipse', 'astral', 'ichor', 'omega'].includes(w.type) ? 12 : 8;
-                let coreSize = ['abyssal', 'crimson', 'eclipse', 'astral', 'ichor', 'omega'].includes(w.type) ? 4 : 2.5;
+                let size = ['abyssal', 'crimson', 'eclipse', 'astral', 'ichor'].includes(w.type) ? 12 : 8;
+                let coreSize = ['abyssal', 'crimson', 'eclipse', 'astral', 'ichor'].includes(w.type) ? 4 : 2.5;
 
                 ctx.fillStyle = glowColor; ctx.beginPath(); ctx.arc(w.x, w.y, size, 0, Math.PI*2); ctx.fill();
-                ctx.strokeStyle = color + '66'; ctx.lineWidth = ['abyssal', 'crimson', 'eclipse', 'astral', 'ichor', 'omega'].includes(w.type) ? 3 : 2;
+                ctx.strokeStyle = color + '66'; ctx.lineWidth = ['abyssal', 'crimson', 'eclipse', 'astral', 'ichor'].includes(w.type) ? 3 : 2;
                 if (w.trail.length > 1) {
                     ctx.beginPath(); ctx.moveTo(w.trail[0].x, w.trail[0].y);
                     w.trail.forEach(pt => ctx.lineTo(pt.x, pt.y)); ctx.stroke();
