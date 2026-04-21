@@ -95,23 +95,23 @@
         let state = {
             flight: null, hoard: 0, tribute: 0, quota: 50, wave: 1,
             threat: 0, quotaMet: false, isBossLevel: false,
-            buildings: [], gems: [], chests: [], paused: true, selected: null,
+            buildings: [], workers: [], chests: [], paused: true, selected: null,
             map: new Map()
         };
 
         // --- PERMANENT RUN UPGRADES (Artifacts/Stats) ---
         let runStats = {
-            gemSpeed: 2.5,
+            workerSpeed: 2.5,
             gemValueMult: 1.0,
             threatResistance: 1.0,
             koboldWorkSpeed: 100 // Lower is faster
         };
 
         const CATALOG = {
-            miner: { cost: 50, name: '⛏️ KOBOLD MINER', type: 'miner', desc: 'Digs up basic gold gems.' },
-            hoard_marker: { cost: 20, name: '🚩 HOARD MARKER', type: 'marker', desc: 'Routes gems through it.' },
-            smelter: { cost: 150, name: '🔥 SMELTER', type: 'smelter', desc: 'Melts gold into valuable Rubies.' },
-            bellows: { cost: 200, name: '💨 BELLOWS', type: 'bellows', desc: 'Speeds up gems passing through.' }
+            miner: { cost: 50, name: '⛏️ MINING CAMP', type: 'miner', desc: 'Spawns Kobolds carrying gold.' },
+            hoard_marker: { cost: 20, name: '🚩 ROUTING POST', type: 'marker', desc: 'Forces Kobolds to walk to it first.' },
+            smelter: { cost: 150, name: '🔥 SMELTER', type: 'smelter', desc: 'Melts gold into Rubies. Must be walked over.' },
+            bellows: { cost: 200, name: '💨 WIND TUNNEL', type: 'bellows', desc: 'Speeds up Kobolds that walk through.' }
         };
 
         function startGame(flight) {
@@ -132,7 +132,7 @@
             state.threat = 0;
             state.quotaMet = false;
             state.buildings = [];
-            state.gems = [];
+            state.workers = [];
             state.chests = [];
             
             // Boss Check
@@ -140,324 +140,4 @@
             state.quota = Math.floor(50 + (state.wave * 40));
             if (state.isBossLevel) {
                 state.quota *= 2; 
-                showNotification("RAID BOSS APPROACHES! TRIBUTE DOUBLED!");
-                document.getElementById('floor-title').innerHTML = `🔥 BOSS DEPTH <span id="wave">${state.wave}</span> 🔥`;
-            } else {
-                document.getElementById('floor-title').innerHTML = `DEPTH <span id="wave">${state.wave}</span>`;
-            }
-
-            document.getElementById('descend-btn').style.display = 'none';
-            document.getElementById('threat-ui').style.display = 'none';
-            
-            // Generate Cave
-            state.map.clear();
-            for(let x=0; x<Math.floor(canvas.width/TILE_SIZE); x++) {
-                for(let y=0; y<Math.floor(canvas.height/TILE_SIZE); y++) {
-                    state.map.set(`${x},${y}`, { isGoldVein: Math.random() < 0.18 });
-                }
-            }
-            
-            // Add Dragon's Maw (Center)
-            const mx = Math.floor(canvas.width/TILE_SIZE/2);
-            const my = Math.floor(canvas.height/TILE_SIZE/2);
-            state.buildings.push({ type: 'maw', x: mx*TILE_SIZE, y: my*TILE_SIZE, cx: mx*TILE_SIZE + 20, cy: my*TILE_SIZE + 20 });
-            
-            // Random Chests
-            if (Math.random() < 0.4 || state.isBossLevel) {
-                const cx = Math.floor(Math.random() * (canvas.width/TILE_SIZE));
-                const cy = Math.floor(Math.random() * (canvas.height/TILE_SIZE));
-                state.chests.push({ x: cx*TILE_SIZE, y: cy*TILE_SIZE, cx: cx*TILE_SIZE+20, cy: cy*TILE_SIZE+20, opened: false });
-            }
-
-            updateUI();
-            renderBlueprints();
-        }
-
-        // --- SHOP LOGIC ---
-        function triggerShop() {
-            state.paused = true;
-            document.getElementById('shop-overlay').style.display = 'flex';
-            const shopUI = document.getElementById('shop-cards');
-            shopUI.innerHTML = '';
-            
-            const shopItems = [
-                { name: "Wyrm's Greed", desc: "+25% Gem Value", cost: 1000, action: () => runStats.gemValueMult += 0.25 },
-                { name: "Wind Wings", desc: "+20% Gem Speed", cost: 800, action: () => runStats.gemSpeed *= 1.2 },
-                { name: "Thick Scales", desc: "Threat rises 15% slower", cost: 1200, action: () => runStats.threatResistance *= 0.85 }
-            ];
-
-            shopItems.forEach(item => {
-                const btn = document.createElement('div');
-                btn.className = 'card';
-                btn.innerHTML = `<div class="type">Relic</div><h3>${item.name}</h3><p style="color:#aaa; font-size:0.9rem;">${item.desc}</p><h4 style="color:#ffd700; margin-top:15px;">🪙 ${item.cost}</h4>`;
-                btn.onclick = () => {
-                    if (state.hoard >= item.cost) {
-                        state.hoard -= item.cost;
-                        item.action();
-                        btn.style.opacity = '0.3';
-                        btn.onclick = null;
-                        btn.innerHTML += `<div style="color:lime; font-weight:bold; margin-top:10px;">PURCHASED</div>`;
-                        updateUI();
-                    } else {
-                        showNotification("NOT ENOUGH HOARD!");
-                    }
-                };
-                shopUI.appendChild(btn);
-            });
-        }
-
-        function closeShop() {
-            document.getElementById('shop-overlay').style.display = 'none';
-            state.paused = false;
-        }
-
-        // --- UI & BUILDING ---
-        function renderBlueprints() {
-            const list = document.getElementById('blueprint-list');
-            list.innerHTML = '';
-            Object.keys(CATALOG).forEach(key => {
-                const bp = CATALOG[key];
-                const price = Math.floor(bp.cost * Math.pow(1.15, state.wave - 1));
-                const btn = document.createElement('button');
-                btn.className = 'blueprint-btn';
-                btn.id = `btn-${key}`;
-                btn.innerHTML = `${bp.name} <span style="float:right; color:#ffd700;">🪙 ${price}</span>`;
-                btn.onclick = () => {
-                    state.selected = key;
-                    document.querySelectorAll('.blueprint-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                };
-                list.appendChild(btn);
-            });
-        }
-
-        canvas.addEventListener('mousedown', (e) => {
-            if(state.paused || !state.selected) return;
-            const gx = Math.floor(e.clientX / TILE_SIZE);
-            const gy = Math.floor(e.clientY / TILE_SIZE);
-            const price = Math.floor(CATALOG[state.selected].cost * Math.pow(1.15, state.wave - 1));
-            const tile = state.map.get(`${gx},${gy}`);
-
-            // Extractor check
-            if (state.selected === 'miner' && (!tile || !tile.isGoldVein)) {
-                showNotification("MINERS MUST BE PLACED ON GOLD VEINS!");
-                return;
-            }
-
-            if (state.hoard >= price) {
-                state.hoard -= price;
-                state.buildings.push({
-                    type: state.selected,
-                    x: gx * TILE_SIZE, y: gy * TILE_SIZE,
-                    cx: gx * TILE_SIZE + 20, cy: gy * TILE_SIZE + 20,
-                    timer: 0
-                });
-                renderBlueprints(); // Update affordability UI
-                updateUI();
-            } else {
-                showNotification("NOT ENOUGH HOARD!");
-            }
-        });
-
-        // --- MAIN LOOP ---
-        function update() {
-            if(state.paused) return;
-
-            // 1. Anti-Farming: The Hero Threat
-            if (state.quotaMet) {
-                let threatSpeed = 0.04;
-                if (state.isBossLevel) threatSpeed = 0.08; // Bosses breach faster
-                
-                state.threat += (threatSpeed * runStats.threatResistance);
-                
-                if (state.threat >= 100) {
-                    state.paused = true;
-                    alert("THE HEROES BREACHED THE LAIR. THE DRAGON IS SLAIN. \nFinal Hoard: " + Math.floor(state.hoard));
-                    location.reload();
-                }
-
-                // Shake screen slightly based on threat
-                if (state.threat > 50) {
-                    let shake = (state.threat - 50) / 10;
-                    canvas.style.transform = `translate(${(Math.random()-0.5)*shake}px, ${(Math.random()-0.5)*shake}px)`;
-                }
-            }
-
-            // 2. Production
-            state.buildings.forEach(b => {
-                if (b.type === 'miner') {
-                    b.timer++;
-                    if (b.timer > runStats.koboldWorkSpeed) {
-                        b.timer = 0;
-                        state.gems.push({ x: b.cx, y: b.cy, type: 'gold', speedMult: 1, target: state.buildings[0] });
-                    }
-                }
-            });
-
-            // 3. Gem Pathing & Interaction
-            for(let i = state.gems.length-1; i>=0; i--) {
-                let g = state.gems[i];
-                
-                // Find target
-                if (!g.target || !state.buildings.includes(g.target)) {
-                    g.target = state.buildings[0]; // Default to Maw
-                    // Check for intermediate contraptions
-                    let validTargets = state.buildings.filter(b => b.type === 'marker' || (b.type === 'smelter' && g.type === 'gold') || (b.type === 'bellows' && g.speedMult === 1));
-                    if (validTargets.length > 0) {
-                        // Find closest
-                        g.target = validTargets.reduce((prev, curr) => Math.hypot(curr.cx - g.x, curr.cy - g.y) < Math.hypot(prev.cx - g.x, prev.cy - g.y) ? curr : prev);
-                    }
-                }
-
-                let dx = g.target.cx - g.x;
-                let dy = g.target.cy - g.y;
-                let dist = Math.hypot(dx, dy);
-                let spd = runStats.gemSpeed * g.speedMult;
-                
-                g.x += (dx/dist) * spd;
-                g.y += (dy/dist) * spd;
-
-                // Hit building
-                if (dist < spd) {
-                    if (g.target.type === 'maw') {
-                        let value = (g.type === 'ruby') ? 30 : 10;
-                        let tValue = (g.type === 'ruby') ? 3 : 1;
-                        
-                        state.tribute += tValue;
-                        state.hoard += value * runStats.gemValueMult;
-                        state.gems.splice(i, 1);
-                        checkQuota();
-                        updateUI();
-                    } else if (g.target.type === 'smelter') {
-                        g.type = 'ruby'; g.target = null;
-                    } else if (g.target.type === 'bellows') {
-                        g.speedMult = 2.0; g.target = null;
-                    } else if (g.target.type === 'marker') {
-                        g.target = null; // Re-evaluate path
-                    }
-                }
-
-                // Check Chests
-                state.chests.forEach(c => {
-                    if (!c.opened && Math.hypot(g.x - c.cx, g.y - c.cy) < 25) {
-                        c.opened = true;
-                        state.hoard += 500; // Free gold burst
-                        showNotification("CHEST CRACKED! +500 HOARD");
-                        updateUI();
-                    }
-                });
-            }
-        }
-
-        function checkQuota() {
-            if (state.tribute >= state.quota && !state.quotaMet) {
-                state.quotaMet = true;
-                document.getElementById('descend-btn').style.display = 'block';
-                document.getElementById('threat-ui').style.display = 'block';
-                if (state.isBossLevel) {
-                    showNotification("RAID BOSS DEFEATED! DELVE QUICKLY!");
-                } else {
-                    showNotification("TRIBUTE MET. HEROES HAVE LOCATED THE LAIR!");
-                }
-            }
-        }
-
-        function descendFloor() {
-            state.wave++;
-            state.hoard += 200; // Delve bonus
-            canvas.style.transform = `translate(0px, 0px)`; // reset shake
-            
-            if (state.wave % 3 === 0) {
-                triggerShop();
-            }
-            initFloor();
-        }
-
-        function updateUI() {
-            document.getElementById('money').innerText = Math.floor(state.hoard);
-            document.getElementById('essence').innerText = Math.floor(state.tribute);
-            document.getElementById('quota').innerText = state.quota;
-            document.getElementById('threat').innerText = Math.floor(state.threat);
-        }
-
-        function showNotification(msg) {
-            const n = document.getElementById('notification');
-            n.innerText = msg; n.style.display = 'block';
-            setTimeout(() => n.style.display = 'none', 3500);
-        }
-
-        // --- RENDERING ---
-        function draw() {
-            ctx.fillStyle = '#160d0d'; // Deep cave background
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Grid / Veins
-            ctx.strokeStyle = '#2a1a1a';
-            ctx.lineWidth = 1;
-            for(let i=0; i<canvas.width; i+=TILE_SIZE) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke(); }
-            for(let i=0; i<canvas.height; i+=TILE_SIZE) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(canvas.width,i); ctx.stroke(); }
-
-            state.map.forEach((tile, key) => {
-                const [x, y] = key.split(',').map(Number);
-                if (tile.isGoldVein) {
-                    ctx.fillStyle = `rgba(255, 170, 0, ${0.15 + Math.sin(Date.now()/300)*0.05})`;
-                    ctx.fillRect(x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                }
-            });
-
-            // Chests
-            state.chests.forEach(c => {
-                if (!c.opened) {
-                    ctx.fillStyle = '#b8860b';
-                    ctx.fillRect(c.x+5, c.y+10, TILE_SIZE-10, TILE_SIZE-15);
-                    ctx.fillStyle = '#eee';
-                    ctx.fillRect(c.x+(TILE_SIZE/2)-3, c.y+12, 6, 4); // lock
-                }
-            });
-
-            // Buildings
-            state.buildings.forEach(b => {
-                if (b.type === 'maw') {
-                    // Dragon/Maw Base
-                    ctx.fillStyle = state.isBossLevel ? '#990000' : '#4a2a1a';
-                    ctx.beginPath();
-                    ctx.arc(b.cx, b.cy, TILE_SIZE, 0, Math.PI*2);
-                    ctx.fill();
-                    // Inner glow
-                    ctx.fillStyle = '#ffaa00';
-                    ctx.beginPath();
-                    ctx.arc(b.cx, b.cy, TILE_SIZE/2 + Math.sin(Date.now()/200)*3, 0, Math.PI*2);
-                    ctx.fill();
-                } else {
-                    ctx.fillStyle = '#3a2a2a';
-                    ctx.fillRect(b.x+2, b.y+2, TILE_SIZE-4, TILE_SIZE-4);
-                    
-                    // Simple distinct visuals
-                    ctx.fillStyle = '#ffaa00';
-                    if (b.type === 'miner') ctx.fillRect(b.x+8, b.y+8, TILE_SIZE-16, TILE_SIZE-16);
-                    if (b.type === 'smelter') { ctx.fillStyle='#ff3333'; ctx.beginPath(); ctx.arc(b.cx, b.cy, 8, 0, Math.PI*2); ctx.fill(); }
-                    if (b.type === 'marker') { ctx.fillStyle='#fff'; ctx.fillRect(b.cx-2, b.y+5, 4, 20); }
-                    if (b.type === 'bellows') { ctx.fillStyle='#88ccff'; ctx.fillRect(b.x+10, b.y+15, TILE_SIZE-20, 10); }
-                }
-            });
-
-            // Gems
-            state.gems.forEach(g => {
-                ctx.fillStyle = g.type === 'ruby' ? '#ff3333' : '#ffd700';
-                ctx.beginPath();
-                ctx.moveTo(g.x, g.y - 6);
-                ctx.lineTo(g.x + 5, g.y);
-                ctx.lineTo(g.x, g.y + 6);
-                ctx.lineTo(g.x - 5, g.y);
-                ctx.fill();
-            });
-        }
-
-        function animate() {
-            update();
-            draw();
-            requestAnimationFrame(animate);
-        }
-    </script>
-</body>
-</html>
+                showNotification("RAID
