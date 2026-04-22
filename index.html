@@ -2,422 +2,278 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dragon's Delve: The Endless Hoard</title>
+    <title>DracoFactory: The Endless Hoard</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #0a0505; font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif; color: #fff; user-select: none; }
-        canvas { display: block; }
+        body { background: #111; color: #ffd700; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 20px; }
+        .screen { display: none; flex-direction: column; align-items: center; text-align: center; width: 100%; max-width: 800px; }
+        .active { display: flex; }
         
-        #ui { position: absolute; top: 20px; left: 20px; z-index: 10; pointer-events: none; display: flex; flex-direction: column; gap: 20px; }
-        .panel { background: rgba(15, 8, 8, 0.9); border: 1px solid #3a1a1a; border-top: 3px solid #ffaa00; padding: 15px 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); pointer-events: auto; backdrop-filter: blur(10px); min-width: 220px; border-radius: 6px; }
-        h2 { margin: 0 0 10px 0; font-size: 1.2rem; color: #ffaa00; text-transform: uppercase; letter-spacing: 2px; border-bottom: 1px solid #3a1a1a; padding-bottom: 5px;}
-        .stat { font-size: 1.1rem; margin-bottom: 8px; font-weight: bold; letter-spacing: 1px;}
-        .hoard-text { color: #ffd700; text-shadow: 0 0 8px rgba(255, 215, 0, 0.6); }
-        .tribute-text { color: #ff4444; text-shadow: 0 0 8px rgba(255, 68, 68, 0.6); }
-        .threat-text { color: #00ffff; font-weight: bold; display: none; animation: flash 1s infinite alternate; }
+        /* Grid & Game */
+        #game-board { display: grid; grid-template-columns: repeat(8, 50px); gap: 2px; background: #222; padding: 10px; border: 4px solid #8b0000; margin: 20px 0; }
+        .cell { width: 50px; height: 50px; background: #333; border: 1px solid #444; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 24px; position: relative; }
+        .cell:hover { background: #555; }
+        .hp-bar { position: absolute; bottom: 0; left: 0; height: 4px; background: red; width: 100%; }
         
-        @keyframes flash { from { text-shadow: 0 0 5px #00ffff; } to { text-shadow: 0 0 15px #00ffff, 0 0 25px #00ffff; } }
+        /* UI Elements */
+        .controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+        button { background: #8b0000; color: #fff; border: 2px solid #5a0000; padding: 10px 15px; cursor: pointer; font-weight: bold; font-family: inherit; }
+        button:hover { background: #ff4500; }
+        button:disabled { background: #555; cursor: not-allowed; border-color: #333; }
+        .panel { background: #222; border: 2px solid #444; padding: 15px; margin: 10px; width: 100%; }
+        
+        /* Drafting */
+        .draft-container { display: flex; gap: 20px; }
+        .draft-card { background: #333; border: 2px solid #ffd700; padding: 20px; cursor: pointer; width: 200px; }
+        .draft-card:hover { background: #444; transform: scale(1.05); }
 
-        button.blueprint-btn { display: block; width: 100%; background: linear-gradient(to bottom, #2a1515, #1a0a0a); color: #ddb; border: 1px solid #4a2a1a; border-left: 4px solid #8a5a2a; padding: 12px 15px; margin-bottom: 8px; text-align: left; cursor: pointer; transition: all 0.2s ease; font-family: inherit; font-size: 0.9rem; border-radius: 4px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;}
-        button.blueprint-btn:hover:not(:disabled) { background: linear-gradient(to bottom, #3a2020, #2a1010); border-left-color: #ffaa00; box-shadow: 0 0 15px rgba(255, 170, 0, 0.2); }
-        button.blueprint-btn.active { border-color: #ffaa00; border-left: 6px solid #ffaa00; color: #fff; box-shadow: inset 0 0 10px rgba(255,170,0,0.2); }
-        
-        #notification { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: linear-gradient(90deg, transparent, rgba(255, 170, 0, 0.9), transparent); color: #fff; padding: 15px 50px; font-weight: bold; display: none; z-index: 20; text-shadow: 0 2px 4px rgba(0,0,0,0.8); text-transform: uppercase; letter-spacing: 2px; pointer-events: none;}
-        
-        .overlay { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: radial-gradient(circle, rgba(20,10,10,0.95) 0%, rgba(5,2,2,1) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }
-        .overlay h1 { color: #ffaa00; font-size: 3.5rem; text-shadow: 0 0 30px rgba(255,170,0,0.6); margin-bottom: 10px; letter-spacing: 4px; }
-        .cards-container { display: flex; gap: 30px; padding: 20px; flex-wrap: wrap; justify-content: center; max-width: 1000px;}
-        .card { background: linear-gradient(135deg, #1a0f0f, #0a0505); border: 1px solid #3a1a1a; border-top: 4px solid #555; border-radius: 8px; width: 300px; padding: 30px 20px; text-align: center; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 15px 35px rgba(0,0,0,0.8); }
-        .card:hover { transform: translateY(-10px); box-shadow: 0 25px 50px rgba(0,0,0,1); }
-        .card .type { font-size: 0.8rem; color: #ffaa00; text-transform: uppercase; margin-bottom: 15px; font-weight: bold; letter-spacing: 2px;}
-
-        #descend-btn { 
-            display: none; background: linear-gradient(45deg, #990000, #ff3333); color: white; border: 1px solid #ffaaaa; padding: 15px; 
-            font-size: 1.1rem; font-weight: bold; cursor: pointer; margin-top: 15px; border-radius: 4px; width: 100%;
-            box-shadow: 0 0 20px rgba(204, 0, 0, 0.4); animation: pulse 2s infinite; font-family: inherit; letter-spacing: 2px;
-        }
-        @keyframes pulse { 0% { box-shadow: 0 0 10px rgba(255, 68, 68, 0.4); } 50% { box-shadow: 0 0 30px rgba(255, 68, 68, 0.8); } 100% { box-shadow: 0 0 10px rgba(255, 68, 68, 0.4); } }
+        #alert-box { color: #ff4500; font-weight: bold; min-height: 20px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
-    <div id="start-overlay" class="overlay">
-        <h1>DRAGON'S DELVE</h1>
-        <p style="color: #888; margin-bottom: 40px; font-size: 1.2rem; font-style: italic;">Select your lineage. Define your hoard.</p>
-        <div class="cards-container">
-            <div class="card" onclick="startGame('crimson')" style="border-top-color: #ff3333;">
-                <div class="type" style="color:#ff3333;">The Crimson Brood</div>
-                <h3 style="font-size: 1.5rem; margin-top:0;">FIRE & SACRIFICE</h3>
-                <p style="color: #aaa; line-height: 1.5;">Gain the <b>Combustion Chamber</b>. Instantly incinerate Kobolds to beam their loot directly to the Maw. High casualty rate, maximum throughput.</p>
+    <div id="screen-menu" class="screen active">
+        <h1>DRAGON'S GREED</h1>
+        <p>Choose your lineage to begin.</p>
+        <div class="draft-container">
+            <div class="draft-card" onclick="startGame('gilded')">
+                <h3>Gilded Wyrm</h3>
+                <p>Start with 200 Gold. Hoarders generate +1 extra base gold.</p>
             </div>
-            <div class="card" onclick="startGame('storm')" style="border-top-color: #33aaff;">
-                <div class="type" style="color:#33aaff;">The Storm Scales</div>
-                <h3 style="font-size: 1.5rem; margin-top:0;">LIGHTNING & LOGISTICS</h3>
-                <p style="color: #aaa; line-height: 1.5;">Gain the <b>Void Relay</b>. Instantly teleport any passing Kobold across the map to the Maw. Perfect for deep-vein extraction.</p>
+            <div class="draft-card" onclick="startGame('crimson')">
+                <h3>Crimson Drake</h3>
+                <p>Start with a free Roaster. Buildings have +50 HP.</p>
             </div>
         </div>
     </div>
 
-    <div id="shop-overlay" class="overlay" style="display: none;">
-        <h1>THE MERCHANTS</h1>
-        <div class="cards-container" id="shop-cards"></div>
-        <button onclick="closeShop()" style="margin-top: 40px; padding: 15px 40px; background: transparent; color: #888; border: 1px solid #444; cursor: pointer; font-size: 1rem; letter-spacing: 2px;">DESCEND</button>
-    </div>
-
-    <div id="ui" style="display: none;">
+    <div id="screen-game" class="screen">
         <div class="panel">
-            <h2 id="floor-title">DEPTH <span id="wave">1</span></h2>
-            <div class="stat">HOARD: <span class="hoard-text">🪙 <span id="money">0</span></span></div>
-            <div class="stat">TRIBUTE: <span class="tribute-text">🍖 <span id="essence">0</span>/<span id="quota">50</span></span></div>
-            <div id="threat-ui" class="stat threat-text">HERO THREAT: <span id="threat">0</span>%</div>
-            <button id="descend-btn" onclick="descendFloor()">DELVE DEEPER</button>
+            <h2>Level <span id="level-display">1</span> | Target: <span id="target-display">500</span>g</h2>
+            <p>Gold: <span id="gold-display">0</span> | Threat: <span id="threat-display">Low</span></p>
+            <div id="alert-box"></div>
         </div>
 
-        <div class="panel">
-            <h2>Blueprints</h2>
-            <div id="blueprint-list"></div>
+        <div id="game-board"></div>
+
+        <div class="controls panel">
+            <button onclick="selectTool('hoarder', 30)">Hoarder (30g) - Produces Gold</button>
+            <button onclick="selectTool('vault', 100)">Vault (100g) - Boosts adjacent Hoarders</button>
+            <button onclick="selectTool('roaster', 75)">Roaster (75g) - Kills Enemies</button>
+        </div>
+
+        <div class="controls panel">
+            <button id="btn-ascend" onclick="ascend()" disabled>Ascend to Next Level</button>
+            <button id="btn-greed" onclick="activateGreed()" disabled>GREED (Stay for x2 Multiplier, Harder Enemies)</button>
         </div>
     </div>
 
-    <div id="notification">MSG</div>
-    <canvas id="canvas"></canvas>
+    <div id="screen-draft" class="screen">
+        <h2>VICTORY! Choose a Relic.</h2>
+        <div class="draft-container" id="draft-choices"></div>
+    </div>
 
     <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        const TILE_SIZE = 40; 
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-
         // --- GAME STATE ---
         let state = {
-            flight: null, hoard: 0, tribute: 0, quota: 50, wave: 1, threat: 0, 
-            quotaMet: false, isBossLevel: false, buildings: [], workers: [], chests: [], 
-            paused: true, selected: null, map: new Map(), particles: []
+            gold: 0, level: 1, target: 500, class: null, greedMultiplier: 1,
+            buildingHP: 100, hoarderBase: 2, currentTool: { id: null, cost: 0 },
+            relics: [], loop: null, enemySpawnRate: 0.05
         };
+        const gridSize = 8;
+        let grid = [];
 
-        let runStats = { workerSpeed: 2.5, gemValueMult: 1.0, threatResistance: 1.0, koboldWorkSpeed: 100 };
-
-        // Base Catalog
-        let CATALOG = {
-            miner: { cost: 50, name: 'Mining Camp', type: 'miner', desc: 'Spawns Kobolds.' },
-            hoard_marker: { cost: 20, name: 'Routing Post', type: 'marker', desc: 'Creates a path.' },
-            smelter: { cost: 150, name: 'Smelter', type: 'smelter', desc: 'Melts gold into Rubies.' },
-        };
-
-        function startGame(flight) {
-            state.flight = flight;
-            state.hoard = 300;
-            
-            // Inject Unique Class Buildings
-            if (flight === 'crimson') {
-                CATALOG.combustion = { cost: 250, name: 'Combustor (Unique)', type: 'combustion', desc: 'Incinerates workers for instant loot.' };
-            } else if (flight === 'storm') {
-                CATALOG.relay = { cost: 250, name: 'Void Relay (Unique)', type: 'relay', desc: 'Teleports workers to the Maw.' };
-            }
-
-            state.paused = false;
-            document.getElementById('start-overlay').style.display = 'none';
-            document.getElementById('ui').style.display = 'flex';
-            initFloor();
-            animate();
+        // --- INITIALIZATION ---
+        function switchScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
         }
 
-        function initFloor() {
-            state.tribute = 0; state.threat = 0; state.quotaMet = false;
-            state.buildings = []; state.workers = []; state.chests = []; state.particles = [];
+        function startGame(dragonClass) {
+            state.class = dragonClass;
+            state.gold = dragonClass === 'gilded' ? 200 : 100;
+            if (dragonClass === 'gilded') state.hoarderBase += 1;
+            if (dragonClass === 'crimson') state.buildingHP += 50;
             
-            state.isBossLevel = (state.wave % 5 === 0);
-            state.quota = Math.floor(50 + (state.wave * 40));
-            if (state.isBossLevel) {
-                state.quota *= 2; 
-                showNotification("RAID BOSS APPROACHES!");
-                document.getElementById('floor-title').innerHTML = `🔥 BOSS DEPTH <span id="wave">${state.wave}</span> 🔥`;
-            } else {
-                document.getElementById('floor-title').innerHTML = `DEPTH <span id="wave">${state.wave}</span>`;
-            }
+            initGrid();
+            switchScreen('screen-game');
+            state.loop = setInterval(gameTick, 1000);
+            updateUI();
+        }
 
-            document.getElementById('descend-btn').style.display = 'none';
-            document.getElementById('threat-ui').style.display = 'none';
-            
-            state.map.clear();
-            for(let x=0; x<Math.floor(canvas.width/TILE_SIZE); x++) {
-                for(let y=0; y<Math.floor(canvas.height/TILE_SIZE); y++) {
-                    state.map.set(`${x},${y}`, { isGoldVein: Math.random() < 0.15 });
+        function initGrid() {
+            const board = document.getElementById('game-board');
+            board.innerHTML = '';
+            grid = [];
+            for (let y = 0; y < gridSize; y++) {
+                for (let x = 0; x < gridSize; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.x = x; cell.dataset.y = y;
+                    cell.onclick = () => placeBuilding(x, y);
+                    board.appendChild(cell);
+                    grid.push({ x, y, type: 'empty', hp: 0, maxHp: 0, element: cell });
                 }
             }
-            
-            const mx = Math.floor(canvas.width/TILE_SIZE/2);
-            const my = Math.floor(canvas.height/TILE_SIZE/2);
-            state.buildings.push({ id: 'maw', type: 'maw', x: mx*TILE_SIZE, y: my*TILE_SIZE, cx: mx*TILE_SIZE + 20, cy: my*TILE_SIZE + 20 });
-            
-            if (Math.random() < 0.5 || state.isBossLevel) {
-                const cx = Math.floor(Math.random() * (canvas.width/TILE_SIZE));
-                const cy = Math.floor(Math.random() * (canvas.height/TILE_SIZE));
-                state.chests.push({ x: cx*TILE_SIZE, y: cy*TILE_SIZE, cx: cx*TILE_SIZE+20, cy: cy*TILE_SIZE+20, opened: false });
-            }
-
-            updateUI(); renderBlueprints();
         }
 
-        function triggerShop() {
-            state.paused = true; document.getElementById('shop-overlay').style.display = 'flex';
-            const shopUI = document.getElementById('shop-cards'); shopUI.innerHTML = '';
-            const shopItems = [
-                { name: "Wyrm's Greed", desc: "+25% Gem Value", cost: 1000, action: () => runStats.gemValueMult += 0.25 },
-                { name: "Whipper's Lash", desc: "+20% Kobold Speed", cost: 800, action: () => runStats.workerSpeed *= 1.2 },
-                { name: "Thick Scales", desc: "Threat rises slower", cost: 1200, action: () => runStats.threatResistance *= 0.85 }
+        // --- BUILDING & ECONOMY ---
+        function selectTool(id, cost) {
+            state.currentTool = { id, cost };
+            document.getElementById('alert-box').innerText = `Selected: ${id}`;
+        }
+
+        function placeBuilding(x, y) {
+            const cellData = grid.find(c => c.x === x && c.y === y);
+            if (cellData.type !== 'empty' || state.gold < state.currentTool.cost || !state.currentTool.id) return;
+
+            state.gold -= state.currentTool.cost;
+            cellData.type = state.currentTool.id;
+            cellData.hp = state.buildingHP;
+            cellData.maxHp = state.buildingHP;
+            
+            renderGrid();
+            updateUI();
+        }
+
+        function getAdjacencyBonus(x, y) {
+            let bonus = 0;
+            const neighbors = [
+                grid.find(c => c.x === x+1 && c.y === y), grid.find(c => c.x === x-1 && c.y === y),
+                grid.find(c => c.x === x && c.y === y+1), grid.find(c => c.x === x && c.y === y-1)
             ];
-            shopItems.forEach(item => {
-                const btn = document.createElement('div'); btn.className = 'card';
-                btn.innerHTML = `<div class="type">Relic</div><h3>${item.name}</h3><p style="color:#aaa; font-size:0.9rem;">${item.desc}</p><h4 style="color:#ffd700; margin-top:15px;">🪙 ${item.cost}</h4>`;
-                btn.onclick = () => { if (state.hoard >= item.cost) { state.hoard -= item.cost; item.action(); btn.style.opacity = '0.3'; btn.onclick = null; updateUI(); } };
-                shopUI.appendChild(btn);
+            neighbors.forEach(n => { if (n && n.type === 'vault') bonus += 2; });
+            return bonus;
+        }
+
+        // --- GAME LOOP & COMBAT ---
+        function gameTick() {
+            let income = 0;
+            let roasterDamage = 10 * (state.relics.includes('dragon_breath') ? 2 : 1);
+
+            // Economy & Attack Phase
+            grid.forEach(cell => {
+                if (cell.type === 'hoarder') {
+                    income += (state.hoarderBase + getAdjacencyBonus(cell.x, cell.y)) * state.greedMultiplier;
+                }
+                // Roasters heal adjacent buildings or damage enemies (simplified here to just healing for prototype)
+                if (cell.type === 'roaster') {
+                    grid.filter(c => c.type === 'enemy').forEach(e => e.hp -= roasterDamage);
+                }
             });
-        }
-        function closeShop() { document.getElementById('shop-overlay').style.display = 'none'; state.paused = false; }
 
-        function renderBlueprints() {
-            const list = document.getElementById('blueprint-list'); list.innerHTML = '';
-            Object.keys(CATALOG).forEach(key => {
-                const bp = CATALOG[key]; const price = Math.floor(bp.cost * Math.pow(1.15, state.wave - 1));
-                const btn = document.createElement('button'); btn.className = 'blueprint-btn'; btn.id = `btn-${key}`;
-                btn.innerHTML = `${bp.name} <span style="float:right; color:#ffd700;">🪙 ${price}</span>`;
-                btn.onclick = () => { state.selected = key; document.querySelectorAll('.blueprint-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); };
-                list.appendChild(btn);
-            });
-        }
+            state.gold += income;
 
-        canvas.addEventListener('mousedown', (e) => {
-            if(state.paused || !state.selected) return;
-            const gx = Math.floor(e.clientX / TILE_SIZE); const gy = Math.floor(e.clientY / TILE_SIZE);
-            const price = Math.floor(CATALOG[state.selected].cost * Math.pow(1.15, state.wave - 1));
-            const tile = state.map.get(`${gx},${gy}`);
-
-            if (state.selected === 'miner' && (!tile || !tile.isGoldVein)) return showNotification("CAMPS REQUIRE GOLD VEINS!");
-
-            if (state.hoard >= price) {
-                state.hoard -= price;
-                state.buildings.push({ id: Math.random().toString(36).substr(2, 9), type: state.selected, x: gx * TILE_SIZE, y: gy * TILE_SIZE, cx: gx * TILE_SIZE + 20, cy: gy * TILE_SIZE + 20, timer: 0 });
-                renderBlueprints(); updateUI();
-            } else showNotification("NOT ENOUGH HOARD!");
-        });
-
-        // Add a simple particle system for the new visuals
-        function spawnParticles(x, y, color, count) {
-            for(let i=0; i<count; i++) {
-                state.particles.push({ x: x, y: y, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4, life: 1.0, color: color });
-            }
-        }
-
-        function update() {
-            if(state.paused) return;
-
-            if (state.quotaMet) {
-                state.threat += ((state.isBossLevel ? 0.08 : 0.04) * runStats.threatResistance);
-                if (state.threat >= 100) { state.paused = true; alert("THE HEROES BREACHED. DRAGON SLAIN.\nHoard: " + Math.floor(state.hoard)); location.reload(); }
-                if (state.threat > 50) { let shake = (state.threat - 50) / 10; canvas.style.transform = `translate(${(Math.random()-0.5)*shake}px, ${(Math.random()-0.5)*shake}px)`; }
+            // Enemy Spawn Phase
+            if (Math.random() < state.enemySpawnRate * state.greedMultiplier) {
+                let emptyCells = grid.filter(c => c.type === 'empty');
+                if (emptyCells.length > 0) {
+                    let spawn = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+                    spawn.type = 'enemy';
+                    spawn.hp = 50 * state.level;
+                    document.getElementById('alert-box').innerText = "Knights have breached the hoard!";
+                }
             }
 
-            // Update Particles
-            for(let i = state.particles.length-1; i>=0; i--) {
-                let p = state.particles[i];
-                p.x += p.vx; p.y += p.vy; p.life -= 0.05;
-                if(p.life <= 0) state.particles.splice(i, 1);
-            }
-
-            state.buildings.forEach(b => {
-                if (b.type === 'miner') {
-                    b.timer++;
-                    if (b.timer > runStats.koboldWorkSpeed) {
-                        b.timer = 0;
-                        state.workers.push({ x: b.cx, y: b.cy, gem: 'gold', target: null, visitedNodes: [], destroyed: false });
+            // Enemy Attack Phase
+            grid.filter(c => c.type === 'enemy').forEach(enemy => {
+                if (enemy.hp <= 0) {
+                    enemy.type = 'empty'; // Enemy dies
+                    state.gold += 10;
+                } else {
+                    // Find random building to attack
+                    let buildings = grid.filter(c => c.type !== 'empty' && c.type !== 'enemy');
+                    if (buildings.length > 0) {
+                        let target = buildings[Math.floor(Math.random() * buildings.length)];
+                        target.hp -= 10 * state.level;
+                        if (target.hp <= 0) target.type = 'empty';
                     }
                 }
             });
 
-            const maw = state.buildings.find(b => b.type === 'maw');
+            checkLevelProgression();
+            renderGrid();
+            updateUI();
+        }
 
-            for(let i = state.workers.length-1; i>=0; i--) {
-                let w = state.workers[i];
-                
-                if (!w.target) {
-                    let localTargets = state.buildings.filter(b => 
-                        (b.type === 'marker' || b.type === 'smelter' || b.type === 'relay' || b.type === 'combustion') && 
-                        !w.visitedNodes.includes(b.id) && Math.hypot(b.cx - w.x, b.cy - w.y) <= 160 
-                    );
-                    if (localTargets.length > 0) {
-                        w.target = localTargets.reduce((prev, curr) => Math.hypot(curr.cx - w.x, curr.cy - w.y) < Math.hypot(prev.cx - w.x, prev.cy - w.y) ? curr : prev);
-                    } else w.target = maw;
-                }
-
-                let dx = w.target.cx - w.x; let dy = w.target.cy - w.y;
-                let dist = Math.hypot(dx, dy); let spd = runStats.workerSpeed;
-                
-                w.x += (dx/dist) * spd; w.y += (dy/dist) * spd;
-
-                if (dist < spd) {
-                    if (w.target.type === 'maw') {
-                        processLoot(w.gem);
-                        w.destroyed = true;
-                    } else {
-                        w.visitedNodes.push(w.target.id);
-                        w.target = null; 
-                    }
-                }
-
-                // Interactions
-                state.buildings.forEach(b => {
-                    if (Math.hypot(w.x - b.cx, w.y - b.cy) < 15) {
-                        if (b.type === 'smelter' && w.gem === 'gold') { w.gem = 'ruby'; spawnParticles(b.cx, b.cy, '#ff3333', 3); }
-                        
-                        // UNIQUE MECHANIC: Void Relay (Storm)
-                        if (b.type === 'relay') {
-                            spawnParticles(w.x, w.y, '#33aaff', 10);
-                            w.x = maw.cx; w.y = maw.cy; // Instantly teleport to maw
-                            w.target = maw;
-                        }
-                        // UNIQUE MECHANIC: Combustion Chamber (Crimson)
-                        if (b.type === 'combustion' && !w.destroyed) {
-                            spawnParticles(b.cx, b.cy, '#ff8800', 15);
-                            processLoot(w.gem); // Give loot instantly
-                            w.destroyed = true; // Kill the worker
-                        }
-                    }
-                });
-
-                state.chests.forEach(c => {
-                    if (!c.opened && Math.hypot(w.x - c.cx, w.y - c.cy) < 20) {
-                        c.opened = true; state.hoard += 500; showNotification("CHEST CRACKED! +500"); updateUI();
-                    }
-                });
-
-                if(w.destroyed) state.workers.splice(i, 1);
+        // --- PROGRESSION & GREED ---
+        function checkLevelProgression() {
+            const btnAscend = document.getElementById('btn-ascend');
+            const btnGreed = document.getElementById('btn-greed');
+            
+            if (state.gold >= state.target) {
+                btnAscend.disabled = false;
+                btnGreed.disabled = state.greedMultiplier > 1; // Can only greed once per level
+            } else {
+                btnAscend.disabled = true;
+                btnGreed.disabled = true;
             }
         }
 
-        function processLoot(gemType) {
-            let value = (gemType === 'ruby') ? 30 : 10;
-            let tValue = (gemType === 'ruby') ? 3 : 1;
-            state.tribute += tValue; state.hoard += value * runStats.gemValueMult;
-            checkQuota(); updateUI();
+        function activateGreed() {
+            state.greedMultiplier += 1;
+            state.target *= 2;
+            state.enemySpawnRate += 0.1; // Harder enemies
+            document.getElementById('alert-box').innerText = "GREED ACTIVATED. Survive if you can.";
+            updateUI();
         }
 
-        function checkQuota() {
-            if (state.tribute >= state.quota && !state.quotaMet) {
-                state.quotaMet = true;
-                document.getElementById('descend-btn').style.display = 'block'; document.getElementById('threat-ui').style.display = 'block';
-                showNotification(state.isBossLevel ? "BOSS DEFEATED! DELVE QUICKLY!" : "TRIBUTE MET. HEROES APPROACH!");
-            }
+        function ascend() {
+            clearInterval(state.loop);
+            state.level++;
+            state.target = Math.floor(state.target * 1.5);
+            state.greedMultiplier = 1;
+            state.enemySpawnRate += 0.02;
+            generateDraft();
+            switchScreen('screen-draft');
         }
 
-        function descendFloor() {
-            state.wave++; state.hoard += 200; canvas.style.transform = `translate(0px, 0px)`; 
-            if (state.wave % 3 === 0) triggerShop(); else initFloor();
+        // --- DRAFTING ---
+        function generateDraft() {
+            const choices = [
+                { id: 'dragon_breath', name: "Dragon's Breath", desc: "Roasters deal double damage." },
+                { id: 'midas_touch', name: "Midas Scales", desc: "+2 Base Gold from all Hoarders." },
+                { id: 'sturdy_stone', name: "Dwarven Masonry", desc: "Instantly heal and grant +100 Max HP to all buildings." }
+            ];
+            const container = document.getElementById('draft-choices');
+            container.innerHTML = '';
+            
+            choices.forEach(relic => {
+                const card = document.createElement('div');
+                card.className = 'draft-card';
+                card.innerHTML = `<h3>${relic.name}</h3><p>${relic.desc}</p>`;
+                card.onclick = () => selectRelic(relic);
+                container.appendChild(card);
+            });
+        }
+
+        function selectRelic(relic) {
+            state.relics.push(relic.id);
+            if (relic.id === 'midas_touch') state.hoarderBase += 2;
+            if (relic.id === 'sturdy_stone') state.buildingHP += 100;
+            
+            initGrid(); // Reset board for next level
+            switchScreen('screen-game');
+            state.loop = setInterval(gameTick, 1000);
+        }
+
+        // --- RENDER HELPERS ---
+        function renderGrid() {
+            const icons = { 'empty': '', 'hoarder': '🦎', 'vault': '💰', 'roaster': '🔥', 'enemy': '⚔️' };
+            grid.forEach(cell => {
+                cell.element.innerText = icons[cell.type];
+                if (cell.type !== 'empty') {
+                    let pct = Math.max(0, (cell.hp / (cell.maxHp || 50)) * 100);
+                    cell.element.innerHTML += `<div class="hp-bar" style="width: ${pct}%"></div>`;
+                }
+            });
         }
 
         function updateUI() {
-            document.getElementById('money').innerText = Math.floor(state.hoard); document.getElementById('essence').innerText = Math.floor(state.tribute);
-            document.getElementById('quota').innerText = state.quota; document.getElementById('threat').innerText = Math.floor(state.threat);
+            document.getElementById('gold-display').innerText = Math.floor(state.gold);
+            document.getElementById('level-display').innerText = state.level;
+            document.getElementById('target-display').innerText = state.target;
+            document.getElementById('threat-display').innerText = state.enemySpawnRate > 0.1 ? "HIGH" : "Low";
         }
-
-        function showNotification(msg) {
-            const n = document.getElementById('notification');
-            n.innerText = msg; n.style.display = 'block'; setTimeout(() => n.style.display = 'none', 3000);
-        }
-
-        // --- ENHANCED GRAPHICS RENDERING ---
-        function draw() {
-            // Dark Atmospheric Background
-            let bgGrad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 100, canvas.width/2, canvas.height/2, canvas.width);
-            bgGrad.addColorStop(0, '#1a1010'); bgGrad.addColorStop(1, '#050202');
-            ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Subtle Grid
-            ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 1;
-            for(let i=0; i<canvas.width; i+=TILE_SIZE) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke(); }
-            for(let i=0; i<canvas.height; i+=TILE_SIZE) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(canvas.width,i); ctx.stroke(); }
-
-            // Gold Veins
-            state.map.forEach((tile, key) => {
-                if (tile.isGoldVein) {
-                    const [x, y] = key.split(',').map(Number);
-                    ctx.fillStyle = `rgba(200, 150, 0, ${0.1 + Math.sin(Date.now()/500 + x)*0.05})`;
-                    ctx.beginPath(); ctx.roundRect(x*TILE_SIZE+4, y*TILE_SIZE+4, TILE_SIZE-8, TILE_SIZE-8, 8); ctx.fill();
-                }
-            });
-
-            // Draw Buildings with Gradients & Shadows
-            ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 10;
-            state.buildings.forEach(b => {
-                if (b.type === 'maw') {
-                    // Dragon Maw Glowing
-                    ctx.shadowColor = state.isBossLevel ? '#ff0000' : '#ffaa00'; ctx.shadowBlur = 20 + Math.sin(Date.now()/150)*10;
-                    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(b.cx, b.cy, TILE_SIZE, 0, Math.PI*2); ctx.fill();
-                    ctx.fillStyle = state.isBossLevel ? '#990000' : '#8a5a2a'; ctx.beginPath(); ctx.arc(b.cx, b.cy, TILE_SIZE-5, 0, Math.PI*2); ctx.fill();
-                    // Center Eye/Glow
-                    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(b.cx, b.cy, 10, 0, Math.PI*2); ctx.fill();
-                    ctx.shadowBlur = 0; // Reset
-                } else {
-                    // Base Building Plate
-                    let platGrad = ctx.createLinearGradient(b.x, b.y, b.x+TILE_SIZE, b.y+TILE_SIZE);
-                    platGrad.addColorStop(0, '#3a3a3a'); platGrad.addColorStop(1, '#1a1a1a');
-                    ctx.fillStyle = platGrad; ctx.beginPath(); ctx.roundRect(b.x+2, b.y+2, TILE_SIZE-4, TILE_SIZE-4, 4); ctx.fill();
-                    
-                    if (b.type === 'miner') {
-                        ctx.fillStyle = '#5c4033'; ctx.beginPath(); ctx.moveTo(b.cx, b.y+6); ctx.lineTo(b.x+6, b.y+TILE_SIZE-6); ctx.lineTo(b.x+TILE_SIZE-6, b.y+TILE_SIZE-6); ctx.fill();
-                        ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(b.cx, b.y+TILE_SIZE-6, 4, Math.PI, 0); ctx.fill(); // tent door
-                    }
-                    if (b.type === 'smelter') { 
-                        ctx.fillStyle='#222'; ctx.beginPath(); ctx.arc(b.cx, b.cy, 12, 0, Math.PI*2); ctx.fill(); 
-                        ctx.fillStyle='#ff4400'; ctx.beginPath(); ctx.arc(b.cx, b.cy, 6 + Math.sin(Date.now()/100)*2, 0, Math.PI*2); ctx.fill(); 
-                    }
-                    if (b.type === 'marker') { 
-                        ctx.fillStyle='#888'; ctx.fillRect(b.cx-2, b.y+6, 4, 24); 
-                        ctx.fillStyle='#d32f2f'; ctx.beginPath(); ctx.moveTo(b.cx+2, b.y+6); ctx.lineTo(b.cx+12, b.y+10); ctx.lineTo(b.cx+2, b.y+14); ctx.fill(); 
-                    }
-                    if (b.type === 'combustion') {
-                        ctx.fillStyle='#551111'; ctx.beginPath(); ctx.roundRect(b.x+6, b.y+6, TILE_SIZE-12, TILE_SIZE-12, 4); ctx.fill();
-                        ctx.fillStyle='#ff0000'; ctx.fillRect(b.x+10, b.y+15, TILE_SIZE-20, 10);
-                    }
-                    if (b.type === 'relay') {
-                        ctx.fillStyle='#111133'; ctx.beginPath(); ctx.arc(b.cx, b.cy, 14, 0, Math.PI*2); ctx.fill();
-                        ctx.strokeStyle='#33aaff'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(b.cx, b.cy, 10 + Math.sin(Date.now()/200)*2, 0, Math.PI*2); ctx.stroke();
-                    }
-                }
-            });
-            ctx.shadowBlur = 0; // Reset shadows for entities
-
-            state.chests.forEach(c => {
-                if (!c.opened) {
-                    ctx.fillStyle = '#8B6508'; ctx.fillRect(c.x+6, c.y+12, TILE_SIZE-12, TILE_SIZE-18);
-                    ctx.fillStyle = '#FFD700'; ctx.fillRect(c.x+8, c.y+10, TILE_SIZE-16, 4); 
-                    ctx.fillStyle = '#eee'; ctx.fillRect(c.cx-2, c.y+12, 4, 4); 
-                }
-            });
-
-            // Enhanced Workers (Kobolds)
-            state.workers.forEach(w => {
-                // Shadow
-                ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.ellipse(w.x, w.y+4, 6, 3, 0, 0, Math.PI*2); ctx.fill();
-                // Body
-                ctx.fillStyle = '#4caf50'; ctx.beginPath(); ctx.arc(w.x, w.y, 5, 0, Math.PI*2); ctx.fill();
-                // Little backpack/gem
-                ctx.fillStyle = w.gem === 'ruby' ? '#ff1744' : '#ffea00';
-                ctx.beginPath(); ctx.arc(w.x, w.y - 4, 4, 0, Math.PI*2); ctx.fill();
-                // Eyes
-                ctx.fillStyle = '#fff'; ctx.fillRect(w.x+2, w.y-1, 2, 2); ctx.fillRect(w.x-1, w.y-1, 2, 2);
-            });
-
-            // Particles
-            state.particles.forEach(p => {
-                ctx.fillStyle = p.color; ctx.globalAlpha = p.life;
-                ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI*2); ctx.fill();
-            });
-            ctx.globalAlpha = 1.0;
-        }
-
-        function animate() { update(); draw(); requestAnimationFrame(animate); }
     </script>
 </body>
 </html>
