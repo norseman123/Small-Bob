@@ -140,4 +140,332 @@
             state.quota = Math.floor(50 + (state.wave * 40));
             if (state.isBossLevel) {
                 state.quota *= 2; 
-                showNotification("RAID
+                showNotification("RAID BOSS APPROACHES! TRIBUTE DOUBLED!");
+                document.getElementById('floor-title').innerHTML = `🔥 BOSS DEPTH <span id="wave">${state.wave}</span> 🔥`;
+            } else {
+                document.getElementById('floor-title').innerHTML = `DEPTH <span id="wave">${state.wave}</span>`;
+            }
+
+            document.getElementById('descend-btn').style.display = 'none';
+            document.getElementById('threat-ui').style.display = 'none';
+            
+            // Generate Cave
+            state.map.clear();
+            for(let x=0; x<Math.floor(canvas.width/TILE_SIZE); x++) {
+                for(let y=0; y<Math.floor(canvas.height/TILE_SIZE); y++) {
+                    state.map.set(`${x},${y}`, { isGoldVein: Math.random() < 0.18 });
+                }
+            }
+            
+            // Add Dragon's Maw (Center)
+            const mx = Math.floor(canvas.width/TILE_SIZE/2);
+            const my = Math.floor(canvas.height/TILE_SIZE/2);
+            state.buildings.push({ id: 'maw', type: 'maw', x: mx*TILE_SIZE, y: my*TILE_SIZE, cx: mx*TILE_SIZE + 20, cy: my*TILE_SIZE + 20 });
+            
+            // Random Chests
+            if (Math.random() < 0.4 || state.isBossLevel) {
+                const cx = Math.floor(Math.random() * (canvas.width/TILE_SIZE));
+                const cy = Math.floor(Math.random() * (canvas.height/TILE_SIZE));
+                state.chests.push({ x: cx*TILE_SIZE, y: cy*TILE_SIZE, cx: cx*TILE_SIZE+20, cy: cy*TILE_SIZE+20, opened: false });
+            }
+
+            updateUI();
+            renderBlueprints();
+        }
+
+        function triggerShop() {
+            state.paused = true;
+            document.getElementById('shop-overlay').style.display = 'flex';
+            const shopUI = document.getElementById('shop-cards');
+            shopUI.innerHTML = '';
+            
+            const shopItems = [
+                { name: "Wyrm's Greed", desc: "+25% Gem Value", cost: 1000, action: () => runStats.gemValueMult += 0.25 },
+                { name: "Whipper's Lash", desc: "+20% Kobold Speed", cost: 800, action: () => runStats.workerSpeed *= 1.2 },
+                { name: "Thick Scales", desc: "Threat rises 15% slower", cost: 1200, action: () => runStats.threatResistance *= 0.85 }
+            ];
+
+            shopItems.forEach(item => {
+                const btn = document.createElement('div');
+                btn.className = 'card';
+                btn.innerHTML = `<div class="type">Relic</div><h3>${item.name}</h3><p style="color:#aaa; font-size:0.9rem;">${item.desc}</p><h4 style="color:#ffd700; margin-top:15px;">🪙 ${item.cost}</h4>`;
+                btn.onclick = () => {
+                    if (state.hoard >= item.cost) {
+                        state.hoard -= item.cost;
+                        item.action();
+                        btn.style.opacity = '0.3';
+                        btn.onclick = null;
+                        btn.innerHTML += `<div style="color:lime; font-weight:bold; margin-top:10px;">PURCHASED</div>`;
+                        updateUI();
+                    } else {
+                        showNotification("NOT ENOUGH HOARD!");
+                    }
+                };
+                shopUI.appendChild(btn);
+            });
+        }
+
+        function closeShop() {
+            document.getElementById('shop-overlay').style.display = 'none';
+            state.paused = false;
+        }
+
+        function renderBlueprints() {
+            const list = document.getElementById('blueprint-list');
+            list.innerHTML = '';
+            Object.keys(CATALOG).forEach(key => {
+                const bp = CATALOG[key];
+                const price = Math.floor(bp.cost * Math.pow(1.15, state.wave - 1));
+                const btn = document.createElement('button');
+                btn.className = 'blueprint-btn';
+                btn.id = `btn-${key}`;
+                btn.innerHTML = `${bp.name} <span style="float:right; color:#ffd700;">🪙 ${price}</span>`;
+                btn.onclick = () => {
+                    state.selected = key;
+                    document.querySelectorAll('.blueprint-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                };
+                list.appendChild(btn);
+            });
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            if(state.paused || !state.selected) return;
+            const gx = Math.floor(e.clientX / TILE_SIZE);
+            const gy = Math.floor(e.clientY / TILE_SIZE);
+            const price = Math.floor(CATALOG[state.selected].cost * Math.pow(1.15, state.wave - 1));
+            const tile = state.map.get(`${gx},${gy}`);
+
+            if (state.selected === 'miner' && (!tile || !tile.isGoldVein)) {
+                showNotification("CAMPS MUST BE PLACED ON GOLD VEINS!");
+                return;
+            }
+
+            if (state.hoard >= price) {
+                state.hoard -= price;
+                state.buildings.push({
+                    id: Math.random().toString(36).substr(2, 9), // Unique ID
+                    type: state.selected,
+                    x: gx * TILE_SIZE, y: gy * TILE_SIZE,
+                    cx: gx * TILE_SIZE + 20, cy: gy * TILE_SIZE + 20,
+                    timer: 0
+                });
+                renderBlueprints();
+                updateUI();
+            } else {
+                showNotification("NOT ENOUGH HOARD!");
+            }
+        });
+
+        function update() {
+            if(state.paused) return;
+
+            // 1. Anti-Farming: The Hero Threat
+            if (state.quotaMet) {
+                let threatSpeed = 0.04;
+                if (state.isBossLevel) threatSpeed = 0.08; 
+                state.threat += (threatSpeed * runStats.threatResistance);
+                
+                if (state.threat >= 100) {
+                    state.paused = true;
+                    alert("THE HEROES BREACHED THE LAIR. THE DRAGON IS SLAIN. \nFinal Hoard: " + Math.floor(state.hoard));
+                    location.reload();
+                }
+
+                if (state.threat > 50) {
+                    let shake = (state.threat - 50) / 10;
+                    canvas.style.transform = `translate(${(Math.random()-0.5)*shake}px, ${(Math.random()-0.5)*shake}px)`;
+                }
+            }
+
+            // 2. Production
+            state.buildings.forEach(b => {
+                if (b.type === 'miner') {
+                    b.timer++;
+                    if (b.timer > runStats.koboldWorkSpeed) {
+                        b.timer = 0;
+                        state.workers.push({ x: b.cx, y: b.cy, gem: 'gold', speedMult: 1, target: null, visitedMarkers: [] });
+                    }
+                }
+            });
+
+            // 3. Worker Pathing & Collision
+            const maw = state.buildings.find(b => b.type === 'maw');
+
+            for(let i = state.workers.length-1; i>=0; i--) {
+                let w = state.workers[i];
+                
+                // If worker has no target, find next unvisited marker, otherwise go to Maw
+                if (!w.target) {
+                    let unvisitedMarkers = state.buildings.filter(b => b.type === 'marker' && !w.visitedMarkers.includes(b.id));
+                    if (unvisitedMarkers.length > 0) {
+                        // Go to closest marker
+                        w.target = unvisitedMarkers.reduce((prev, curr) => Math.hypot(curr.cx - w.x, curr.cy - w.y) < Math.hypot(prev.cx - w.x, prev.cy - w.y) ? curr : prev);
+                    } else {
+                        w.target = maw;
+                    }
+                }
+
+                let dx = w.target.cx - w.x;
+                let dy = w.target.cy - w.y;
+                let dist = Math.hypot(dx, dy);
+                let spd = runStats.workerSpeed * w.speedMult;
+                
+                w.x += (dx/dist) * spd;
+                w.y += (dy/dist) * spd;
+
+                // Hit target logic
+                if (dist < spd) {
+                    if (w.target.type === 'maw') {
+                        let value = (w.gem === 'ruby') ? 30 : 10;
+                        let tValue = (w.gem === 'ruby') ? 3 : 1;
+                        
+                        state.tribute += tValue;
+                        state.hoard += value * runStats.gemValueMult;
+                        state.workers.splice(i, 1);
+                        checkQuota();
+                        updateUI();
+                        continue;
+                    } else if (w.target.type === 'marker') {
+                        w.visitedMarkers.push(w.target.id);
+                        w.target = null; // Forces recalculation next frame
+                    }
+                }
+
+                // Check collisions with buildings they walk over (Smelters / Bellows)
+                state.buildings.forEach(b => {
+                    if (b.type === 'smelter' || b.type === 'bellows') {
+                        if (Math.hypot(w.x - b.cx, w.y - b.cy) < 15) { // Collision radius
+                            if (b.type === 'smelter' && w.gem === 'gold') w.gem = 'ruby';
+                            if (b.type === 'bellows') w.speedMult = 2.0;
+                        }
+                    }
+                });
+
+                // Check Chests
+                state.chests.forEach(c => {
+                    if (!c.opened && Math.hypot(w.x - c.cx, w.y - c.cy) < 20) {
+                        c.opened = true;
+                        state.hoard += 500; 
+                        showNotification("CHEST CRACKED! +500 HOARD");
+                        updateUI();
+                    }
+                });
+            }
+        }
+
+        function checkQuota() {
+            if (state.tribute >= state.quota && !state.quotaMet) {
+                state.quotaMet = true;
+                document.getElementById('descend-btn').style.display = 'block';
+                document.getElementById('threat-ui').style.display = 'block';
+                if (state.isBossLevel) showNotification("RAID BOSS DEFEATED! DELVE QUICKLY!");
+                else showNotification("TRIBUTE MET. HEROES HAVE LOCATED THE LAIR!");
+            }
+        }
+
+        function descendFloor() {
+            state.wave++;
+            state.hoard += 200; 
+            canvas.style.transform = `translate(0px, 0px)`; 
+            if (state.wave % 3 === 0) triggerShop();
+            initFloor();
+        }
+
+        function updateUI() {
+            document.getElementById('money').innerText = Math.floor(state.hoard);
+            document.getElementById('essence').innerText = Math.floor(state.tribute);
+            document.getElementById('quota').innerText = state.quota;
+            document.getElementById('threat').innerText = Math.floor(state.threat);
+        }
+
+        function showNotification(msg) {
+            const n = document.getElementById('notification');
+            n.innerText = msg; n.style.display = 'block';
+            setTimeout(() => n.style.display = 'none', 3500);
+        }
+
+        // --- RENDERING ---
+        function draw() {
+            ctx.fillStyle = '#160d0d'; 
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Grid / Veins
+            ctx.strokeStyle = '#2a1a1a';
+            ctx.lineWidth = 1;
+            for(let i=0; i<canvas.width; i+=TILE_SIZE) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke(); }
+            for(let i=0; i<canvas.height; i+=TILE_SIZE) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(canvas.width,i); ctx.stroke(); }
+
+            state.map.forEach((tile, key) => {
+                const [x, y] = key.split(',').map(Number);
+                if (tile.isGoldVein) {
+                    ctx.fillStyle = `rgba(255, 170, 0, ${0.15 + Math.sin(Date.now()/300)*0.05})`;
+                    ctx.fillRect(x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                }
+            });
+
+            // Chests
+            state.chests.forEach(c => {
+                if (!c.opened) {
+                    ctx.fillStyle = '#b8860b';
+                    ctx.fillRect(c.x+5, c.y+10, TILE_SIZE-10, TILE_SIZE-15);
+                    ctx.fillStyle = '#eee';
+                    ctx.fillRect(c.x+(TILE_SIZE/2)-3, c.y+12, 6, 4); 
+                }
+            });
+
+            // Buildings
+            state.buildings.forEach(b => {
+                if (b.type === 'maw') {
+                    ctx.fillStyle = state.isBossLevel ? '#990000' : '#4a2a1a';
+                    ctx.beginPath();
+                    ctx.arc(b.cx, b.cy, TILE_SIZE, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.fillStyle = '#ffaa00';
+                    ctx.beginPath();
+                    ctx.arc(b.cx, b.cy, TILE_SIZE/2 + Math.sin(Date.now()/200)*3, 0, Math.PI*2);
+                    ctx.fill();
+                } else {
+                    ctx.fillStyle = '#3a2a2a';
+                    ctx.fillRect(b.x+2, b.y+2, TILE_SIZE-4, TILE_SIZE-4);
+                    
+                    ctx.fillStyle = '#ffaa00';
+                    if (b.type === 'miner') {
+                        ctx.fillRect(b.x+8, b.y+8, TILE_SIZE-16, TILE_SIZE-16);
+                        // Little tent top
+                        ctx.fillStyle = '#8B4513';
+                        ctx.beginPath(); ctx.moveTo(b.cx, b.y+2); ctx.lineTo(b.x+2, b.y+TILE_SIZE/2); ctx.lineTo(b.x+TILE_SIZE-2, b.y+TILE_SIZE/2); ctx.fill();
+                    }
+                    if (b.type === 'smelter') { ctx.fillStyle='#ff3333'; ctx.beginPath(); ctx.arc(b.cx, b.cy, 12, 0, Math.PI*2); ctx.fill(); ctx.fillStyle='#ffa500'; ctx.beginPath(); ctx.arc(b.cx, b.cy, 6, 0, Math.PI*2); ctx.fill(); }
+                    if (b.type === 'marker') { ctx.fillStyle='#fff'; ctx.fillRect(b.cx-2, b.y+5, 4, 25); ctx.fillStyle='#ff0000'; ctx.fillRect(b.cx, b.y+5, 10, 8); }
+                    if (b.type === 'bellows') { ctx.fillStyle='#88ccff'; ctx.fillRect(b.x+5, b.y+10, TILE_SIZE-10, 20); ctx.fillStyle='#111'; ctx.fillRect(b.x+10, b.y+15, TILE_SIZE-20, 10); }
+                }
+            });
+
+            // Kobold Workers
+            state.workers.forEach(w => {
+                // Draw Kobold (Little green circle)
+                ctx.fillStyle = '#6b8e23'; 
+                ctx.beginPath();
+                ctx.arc(w.x, w.y, 6, 0, Math.PI*2);
+                ctx.fill();
+
+                // Draw the gem they are carrying slightly offset
+                ctx.fillStyle = w.gem === 'ruby' ? '#ff3333' : '#ffd700';
+                ctx.beginPath();
+                ctx.moveTo(w.x, w.y - 10);
+                ctx.lineTo(w.x + 4, w.y - 4);
+                ctx.lineTo(w.x, w.y + 2);
+                ctx.lineTo(w.x - 4, w.y - 4);
+                ctx.fill();
+            });
+        }
+
+        function animate() {
+            update();
+            draw();
+            requestAnimationFrame(animate);
+        }
+    </script>
+</body>
+</html>
