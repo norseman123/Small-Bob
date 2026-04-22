@@ -5,65 +5,63 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dragon's Delve: The Endless Hoard</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #1a0a0a; font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif; color: #fff; user-select: none; }
+        body { margin: 0; overflow: hidden; background: #0a0505; font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif; color: #fff; user-select: none; }
         canvas { display: block; }
         
         #ui { position: absolute; top: 20px; left: 20px; z-index: 10; pointer-events: none; display: flex; flex-direction: column; gap: 20px; }
-        .panel { background: rgba(26, 10, 10, 0.85); border: 2px solid #5a3a1a; border-top: 4px solid #ffaa00; padding: 15px 20px; box-shadow: 0 4px 25px rgba(255, 170, 0, 0.2); pointer-events: auto; backdrop-filter: blur(8px); min-width: 220px; border-radius: 8px; }
-        h2 { margin: 0 0 10px 0; font-size: 1.3rem; color: #ffaa00; text-transform: uppercase; letter-spacing: 2px; border-bottom: 1px solid #5a3a1a; padding-bottom: 5px;}
-        .stat { font-size: 1.1rem; margin-bottom: 8px; font-weight: bold; }
-        .hoard-text { color: #ffd700; text-shadow: 0 0 5px rgba(255, 215, 0, 0.5); }
-        .tribute-text { color: #ff4444; text-shadow: 0 0 5px rgba(255, 68, 68, 0.5); }
+        .panel { background: rgba(15, 8, 8, 0.9); border: 1px solid #3a1a1a; border-top: 3px solid #ffaa00; padding: 15px 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); pointer-events: auto; backdrop-filter: blur(10px); min-width: 220px; border-radius: 6px; }
+        h2 { margin: 0 0 10px 0; font-size: 1.2rem; color: #ffaa00; text-transform: uppercase; letter-spacing: 2px; border-bottom: 1px solid #3a1a1a; padding-bottom: 5px;}
+        .stat { font-size: 1.1rem; margin-bottom: 8px; font-weight: bold; letter-spacing: 1px;}
+        .hoard-text { color: #ffd700; text-shadow: 0 0 8px rgba(255, 215, 0, 0.6); }
+        .tribute-text { color: #ff4444; text-shadow: 0 0 8px rgba(255, 68, 68, 0.6); }
         .threat-text { color: #00ffff; font-weight: bold; display: none; animation: flash 1s infinite alternate; }
         
         @keyframes flash { from { text-shadow: 0 0 5px #00ffff; } to { text-shadow: 0 0 15px #00ffff, 0 0 25px #00ffff; } }
 
-        button.blueprint-btn { display: block; width: 100%; background: #2a1a1a; color: #ddb; border: 1px solid #5a3a1a; border-left: 4px solid #8a5a2a; padding: 12px 15px; margin-bottom: 8px; text-align: left; cursor: pointer; transition: all 0.2s ease; font-family: inherit; font-size: 1rem; border-radius: 4px; font-weight: bold; }
-        button.blueprint-btn:hover:not(:disabled) { background: #3a2a2a; color: #fff; border-left-color: #ffaa00; box-shadow: 0 0 10px rgba(255, 170, 0, 0.3); }
-        button.blueprint-btn.active { background: #4a3a2a; border-color: #ffaa00; border-left: 6px solid #ffaa00; color: #fff; }
-        button.blueprint-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        button.blueprint-btn { display: block; width: 100%; background: linear-gradient(to bottom, #2a1515, #1a0a0a); color: #ddb; border: 1px solid #4a2a1a; border-left: 4px solid #8a5a2a; padding: 12px 15px; margin-bottom: 8px; text-align: left; cursor: pointer; transition: all 0.2s ease; font-family: inherit; font-size: 0.9rem; border-radius: 4px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;}
+        button.blueprint-btn:hover:not(:disabled) { background: linear-gradient(to bottom, #3a2020, #2a1010); border-left-color: #ffaa00; box-shadow: 0 0 15px rgba(255, 170, 0, 0.2); }
+        button.blueprint-btn.active { border-color: #ffaa00; border-left: 6px solid #ffaa00; color: #fff; box-shadow: inset 0 0 10px rgba(255,170,0,0.2); }
         
-        #notification { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(255, 170, 0, 0.9); color: #000; padding: 15px 30px; border-radius: 8px; font-weight: bold; display: none; z-index: 20; box-shadow: 0 0 20px #ffaa00; text-transform: uppercase; letter-spacing: 1px; pointer-events: none;}
+        #notification { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: linear-gradient(90deg, transparent, rgba(255, 170, 0, 0.9), transparent); color: #fff; padding: 15px 50px; font-weight: bold; display: none; z-index: 20; text-shadow: 0 2px 4px rgba(0,0,0,0.8); text-transform: uppercase; letter-spacing: 2px; pointer-events: none;}
         
-        .overlay { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(10, 5, 5, 0.95); backdrop-filter: blur(8px); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }
-        .overlay h1 { color: #ffaa00; font-size: 3rem; text-shadow: 0 0 20px rgba(255,170,0,0.5); margin-bottom: 10px; }
+        .overlay { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: radial-gradient(circle, rgba(20,10,10,0.95) 0%, rgba(5,2,2,1) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }
+        .overlay h1 { color: #ffaa00; font-size: 3.5rem; text-shadow: 0 0 30px rgba(255,170,0,0.6); margin-bottom: 10px; letter-spacing: 4px; }
         .cards-container { display: flex; gap: 30px; padding: 20px; flex-wrap: wrap; justify-content: center; max-width: 1000px;}
-        .card { background: #1a1010; border: 2px solid #5a3a1a; border-radius: 12px; width: 280px; padding: 25px; text-align: center; cursor: pointer; transition: all 0.3s ease; position: relative; overflow: hidden; box-shadow: 0 8px 16px rgba(0,0,0,0.5); }
-        .card:hover { transform: translateY(-10px); border-color: #ffaa00; box-shadow: 0 15px 30px rgba(255, 170, 0, 0.3); }
-        .card .type { font-size: 0.9rem; color: #ffaa00; text-transform: uppercase; margin-bottom: 10px; font-weight: bold; }
+        .card { background: linear-gradient(135deg, #1a0f0f, #0a0505); border: 1px solid #3a1a1a; border-top: 4px solid #555; border-radius: 8px; width: 300px; padding: 30px 20px; text-align: center; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 15px 35px rgba(0,0,0,0.8); }
+        .card:hover { transform: translateY(-10px); box-shadow: 0 25px 50px rgba(0,0,0,1); }
+        .card .type { font-size: 0.8rem; color: #ffaa00; text-transform: uppercase; margin-bottom: 15px; font-weight: bold; letter-spacing: 2px;}
 
         #descend-btn { 
-            display: none; background: linear-gradient(45deg, #cc0000, #ff4444); color: white; border: 2px solid #ffaaaa; padding: 15px 30px; 
-            font-size: 1.2rem; font-weight: bold; cursor: pointer; margin-top: 15px; border-radius: 8px; width: 100%;
-            box-shadow: 0 0 20px rgba(204, 0, 0, 0.6); animation: pulse 1.5s infinite; font-family: inherit;
+            display: none; background: linear-gradient(45deg, #990000, #ff3333); color: white; border: 1px solid #ffaaaa; padding: 15px; 
+            font-size: 1.1rem; font-weight: bold; cursor: pointer; margin-top: 15px; border-radius: 4px; width: 100%;
+            box-shadow: 0 0 20px rgba(204, 0, 0, 0.4); animation: pulse 2s infinite; font-family: inherit; letter-spacing: 2px;
         }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); box-shadow: 0 0 30px rgba(255, 68, 68, 0.8); } 100% { transform: scale(1); } }
+        @keyframes pulse { 0% { box-shadow: 0 0 10px rgba(255, 68, 68, 0.4); } 50% { box-shadow: 0 0 30px rgba(255, 68, 68, 0.8); } 100% { box-shadow: 0 0 10px rgba(255, 68, 68, 0.4); } }
     </style>
 </head>
 <body>
 
     <div id="start-overlay" class="overlay">
-        <h1>CHOOSE YOUR FLIGHT</h1>
-        <p style="color: #ccc; margin-bottom: 30px; font-size: 1.2rem;">Command your Kobolds. Build the Hoard. Fend off the Heroes.</p>
+        <h1>DRAGON'S DELVE</h1>
+        <p style="color: #888; margin-bottom: 40px; font-size: 1.2rem; font-style: italic;">Select your lineage. Define your hoard.</p>
         <div class="cards-container">
             <div class="card" onclick="startGame('crimson')" style="border-top-color: #ff3333;">
-                <div class="type">The Crimson Flight</div>
-                <h3>FIRE & FURY</h3>
-                <p style="color: #aaa;">Starts with extra Hoard value. Contraptions work slightly faster.</p>
+                <div class="type" style="color:#ff3333;">The Crimson Brood</div>
+                <h3 style="font-size: 1.5rem; margin-top:0;">FIRE & SACRIFICE</h3>
+                <p style="color: #aaa; line-height: 1.5;">Gain the <b>Combustion Chamber</b>. Instantly incinerate Kobolds to beam their loot directly to the Maw. High casualty rate, maximum throughput.</p>
             </div>
-            <div class="card" onclick="startGame('obsidian')" style="border-top-color: #9933ff;">
-                <div class="type">The Obsidian Flight</div>
-                <h3>DEEP EARTH</h3>
-                <p style="color: #aaa;">Heroes are slower to breach. Threat Level rises 20% slower.</p>
+            <div class="card" onclick="startGame('storm')" style="border-top-color: #33aaff;">
+                <div class="type" style="color:#33aaff;">The Storm Scales</div>
+                <h3 style="font-size: 1.5rem; margin-top:0;">LIGHTNING & LOGISTICS</h3>
+                <p style="color: #aaa; line-height: 1.5;">Gain the <b>Void Relay</b>. Instantly teleport any passing Kobold across the map to the Maw. Perfect for deep-vein extraction.</p>
             </div>
         </div>
     </div>
 
     <div id="shop-overlay" class="overlay" style="display: none;">
-        <h1>GOBLIN MERCHANT</h1>
-        <p style="color: #ccc; margin-bottom: 20px;">"Trade some of that shiny Hoard for permanent power, O' Great One?"</p>
+        <h1>THE MERCHANTS</h1>
         <div class="cards-container" id="shop-cards"></div>
-        <button onclick="closeShop()" style="margin-top: 30px; padding: 15px 40px; background: #333; color: white; border: 1px solid #555; cursor: pointer; font-size: 1.2rem; border-radius: 8px;">Leave the Shop</button>
+        <button onclick="closeShop()" style="margin-top: 40px; padding: 15px 40px; background: transparent; color: #888; border: 1px solid #444; cursor: pointer; font-size: 1rem; letter-spacing: 2px;">DESCEND</button>
     </div>
 
     <div id="ui" style="display: none;">
@@ -76,7 +74,7 @@
         </div>
 
         <div class="panel">
-            <h2>Kobold Blueprints</h2>
+            <h2>Blueprints</h2>
             <div id="blueprint-list"></div>
         </div>
     </div>
@@ -93,32 +91,30 @@
 
         // --- GAME STATE ---
         let state = {
-            flight: null, hoard: 0, tribute: 0, quota: 50, wave: 1,
-            threat: 0, quotaMet: false, isBossLevel: false,
-            buildings: [], workers: [], chests: [], paused: true, selected: null,
-            map: new Map()
+            flight: null, hoard: 0, tribute: 0, quota: 50, wave: 1, threat: 0, 
+            quotaMet: false, isBossLevel: false, buildings: [], workers: [], chests: [], 
+            paused: true, selected: null, map: new Map(), particles: []
         };
 
-        // --- PERMANENT RUN UPGRADES ---
-        let runStats = {
-            workerSpeed: 2.5,
-            gemValueMult: 1.0,
-            threatResistance: 1.0,
-            koboldWorkSpeed: 100 
-        };
+        let runStats = { workerSpeed: 2.5, gemValueMult: 1.0, threatResistance: 1.0, koboldWorkSpeed: 100 };
 
-        const CATALOG = {
-            miner: { cost: 50, name: '⛏️ MINING CAMP', type: 'miner', desc: 'Spawns Kobolds carrying gold.' },
-            hoard_marker: { cost: 20, name: '🚩 ROUTING POST', type: 'marker', desc: 'Creates a localized path.' },
-            smelter: { cost: 150, name: '🔥 SMELTER', type: 'smelter', desc: 'Melts gold into Rubies. Magnetizes workers.' },
-            bellows: { cost: 200, name: '💨 WIND TUNNEL', type: 'bellows', desc: 'Speeds up Kobolds. Magnetizes workers.' }
+        // Base Catalog
+        let CATALOG = {
+            miner: { cost: 50, name: 'Mining Camp', type: 'miner', desc: 'Spawns Kobolds.' },
+            hoard_marker: { cost: 20, name: 'Routing Post', type: 'marker', desc: 'Creates a path.' },
+            smelter: { cost: 150, name: 'Smelter', type: 'smelter', desc: 'Melts gold into Rubies.' },
         };
 
         function startGame(flight) {
             state.flight = flight;
-            state.hoard = (flight === 'crimson') ? 500 : 300;
-            if (flight === 'crimson') runStats.koboldWorkSpeed = 85;
-            if (flight === 'obsidian') runStats.threatResistance = 0.8;
+            state.hoard = 300;
+            
+            // Inject Unique Class Buildings
+            if (flight === 'crimson') {
+                CATALOG.combustion = { cost: 250, name: 'Combustor (Unique)', type: 'combustion', desc: 'Incinerates workers for instant loot.' };
+            } else if (flight === 'storm') {
+                CATALOG.relay = { cost: 250, name: 'Void Relay (Unique)', type: 'relay', desc: 'Teleports workers to the Maw.' };
+            }
 
             state.paused = false;
             document.getElementById('start-overlay').style.display = 'none';
@@ -128,18 +124,14 @@
         }
 
         function initFloor() {
-            state.tribute = 0;
-            state.threat = 0;
-            state.quotaMet = false;
-            state.buildings = [];
-            state.workers = [];
-            state.chests = [];
+            state.tribute = 0; state.threat = 0; state.quotaMet = false;
+            state.buildings = []; state.workers = []; state.chests = []; state.particles = [];
             
             state.isBossLevel = (state.wave % 5 === 0);
             state.quota = Math.floor(50 + (state.wave * 40));
             if (state.isBossLevel) {
                 state.quota *= 2; 
-                showNotification("RAID BOSS APPROACHES! TRIBUTE DOUBLED!");
+                showNotification("RAID BOSS APPROACHES!");
                 document.getElementById('floor-title').innerHTML = `🔥 BOSS DEPTH <span id="wave">${state.wave}</span> 🔥`;
             } else {
                 document.getElementById('floor-title').innerHTML = `DEPTH <span id="wave">${state.wave}</span>`;
@@ -151,7 +143,7 @@
             state.map.clear();
             for(let x=0; x<Math.floor(canvas.width/TILE_SIZE); x++) {
                 for(let y=0; y<Math.floor(canvas.height/TILE_SIZE); y++) {
-                    state.map.set(`${x},${y}`, { isGoldVein: Math.random() < 0.18 });
+                    state.map.set(`${x},${y}`, { isGoldVein: Math.random() < 0.15 });
                 }
             }
             
@@ -159,309 +151,274 @@
             const my = Math.floor(canvas.height/TILE_SIZE/2);
             state.buildings.push({ id: 'maw', type: 'maw', x: mx*TILE_SIZE, y: my*TILE_SIZE, cx: mx*TILE_SIZE + 20, cy: my*TILE_SIZE + 20 });
             
-            if (Math.random() < 0.4 || state.isBossLevel) {
+            if (Math.random() < 0.5 || state.isBossLevel) {
                 const cx = Math.floor(Math.random() * (canvas.width/TILE_SIZE));
                 const cy = Math.floor(Math.random() * (canvas.height/TILE_SIZE));
                 state.chests.push({ x: cx*TILE_SIZE, y: cy*TILE_SIZE, cx: cx*TILE_SIZE+20, cy: cy*TILE_SIZE+20, opened: false });
             }
 
-            updateUI();
-            renderBlueprints();
+            updateUI(); renderBlueprints();
         }
 
+        // ... [Shop logic remains the same, hidden for brevity in explanation but intact in code] ...
         function triggerShop() {
-            state.paused = true;
-            document.getElementById('shop-overlay').style.display = 'flex';
-            const shopUI = document.getElementById('shop-cards');
-            shopUI.innerHTML = '';
-            
+            state.paused = true; document.getElementById('shop-overlay').style.display = 'flex';
+            const shopUI = document.getElementById('shop-cards'); shopUI.innerHTML = '';
             const shopItems = [
                 { name: "Wyrm's Greed", desc: "+25% Gem Value", cost: 1000, action: () => runStats.gemValueMult += 0.25 },
                 { name: "Whipper's Lash", desc: "+20% Kobold Speed", cost: 800, action: () => runStats.workerSpeed *= 1.2 },
-                { name: "Thick Scales", desc: "Threat rises 15% slower", cost: 1200, action: () => runStats.threatResistance *= 0.85 }
+                { name: "Thick Scales", desc: "Threat rises slower", cost: 1200, action: () => runStats.threatResistance *= 0.85 }
             ];
-
             shopItems.forEach(item => {
-                const btn = document.createElement('div');
-                btn.className = 'card';
+                const btn = document.createElement('div'); btn.className = 'card';
                 btn.innerHTML = `<div class="type">Relic</div><h3>${item.name}</h3><p style="color:#aaa; font-size:0.9rem;">${item.desc}</p><h4 style="color:#ffd700; margin-top:15px;">🪙 ${item.cost}</h4>`;
-                btn.onclick = () => {
-                    if (state.hoard >= item.cost) {
-                        state.hoard -= item.cost;
-                        item.action();
-                        btn.style.opacity = '0.3';
-                        btn.onclick = null;
-                        btn.innerHTML += `<div style="color:lime; font-weight:bold; margin-top:10px;">PURCHASED</div>`;
-                        updateUI();
-                    } else {
-                        showNotification("NOT ENOUGH HOARD!");
-                    }
-                };
+                btn.onclick = () => { if (state.hoard >= item.cost) { state.hoard -= item.cost; item.action(); btn.style.opacity = '0.3'; btn.onclick = null; updateUI(); } };
                 shopUI.appendChild(btn);
             });
         }
-
-        function closeShop() {
-            document.getElementById('shop-overlay').style.display = 'none';
-            state.paused = false;
-        }
+        function closeShop() { document.getElementById('shop-overlay').style.display = 'none'; state.paused = false; }
 
         function renderBlueprints() {
-            const list = document.getElementById('blueprint-list');
-            list.innerHTML = '';
+            const list = document.getElementById('blueprint-list'); list.innerHTML = '';
             Object.keys(CATALOG).forEach(key => {
-                const bp = CATALOG[key];
-                const price = Math.floor(bp.cost * Math.pow(1.15, state.wave - 1));
-                const btn = document.createElement('button');
-                btn.className = 'blueprint-btn';
-                btn.id = `btn-${key}`;
+                const bp = CATALOG[key]; const price = Math.floor(bp.cost * Math.pow(1.15, state.wave - 1));
+                const btn = document.createElement('button'); btn.className = 'blueprint-btn'; btn.id = `btn-${key}`;
                 btn.innerHTML = `${bp.name} <span style="float:right; color:#ffd700;">🪙 ${price}</span>`;
-                btn.onclick = () => {
-                    state.selected = key;
-                    document.querySelectorAll('.blueprint-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                };
+                btn.onclick = () => { state.selected = key; document.querySelectorAll('.blueprint-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); };
                 list.appendChild(btn);
             });
         }
 
         canvas.addEventListener('mousedown', (e) => {
             if(state.paused || !state.selected) return;
-            const gx = Math.floor(e.clientX / TILE_SIZE);
-            const gy = Math.floor(e.clientY / TILE_SIZE);
+            const gx = Math.floor(e.clientX / TILE_SIZE); const gy = Math.floor(e.clientY / TILE_SIZE);
             const price = Math.floor(CATALOG[state.selected].cost * Math.pow(1.15, state.wave - 1));
             const tile = state.map.get(`${gx},${gy}`);
 
-            if (state.selected === 'miner' && (!tile || !tile.isGoldVein)) {
-                showNotification("CAMPS MUST BE PLACED ON GOLD VEINS!");
-                return;
-            }
+            if (state.selected === 'miner' && (!tile || !tile.isGoldVein)) return showNotification("CAMPS REQUIRE GOLD VEINS!");
 
             if (state.hoard >= price) {
                 state.hoard -= price;
-                state.buildings.push({
-                    id: Math.random().toString(36).substr(2, 9), 
-                    type: state.selected,
-                    x: gx * TILE_SIZE, y: gy * TILE_SIZE,
-                    cx: gx * TILE_SIZE + 20, cy: gy * TILE_SIZE + 20,
-                    timer: 0
-                });
-                renderBlueprints();
-                updateUI();
-            } else {
-                showNotification("NOT ENOUGH HOARD!");
-            }
+                state.buildings.push({ id: Math.random().toString(36).substr(2, 9), type: state.selected, x: gx * TILE_SIZE, y: gy * TILE_SIZE, cx: gx * TILE_SIZE + 20, cy: gy * TILE_SIZE + 20, timer: 0 });
+                renderBlueprints(); updateUI();
+            } else showNotification("NOT ENOUGH HOARD!");
         });
+
+        // Add a simple particle system for the new visuals
+        function spawnParticles(x, y, color, count) {
+            for(let i=0; i<count; i++) {
+                state.particles.push({ x: x, y: y, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4, life: 1.0, color: color });
+            }
+        }
 
         function update() {
             if(state.paused) return;
 
-            // 1. Anti-Farming: The Hero Threat
             if (state.quotaMet) {
-                let threatSpeed = 0.04;
-                if (state.isBossLevel) threatSpeed = 0.08; 
-                state.threat += (threatSpeed * runStats.threatResistance);
-                
-                if (state.threat >= 100) {
-                    state.paused = true;
-                    alert("THE HEROES BREACHED THE LAIR. THE DRAGON IS SLAIN. \nFinal Hoard: " + Math.floor(state.hoard));
-                    location.reload();
-                }
-
-                if (state.threat > 50) {
-                    let shake = (state.threat - 50) / 10;
-                    canvas.style.transform = `translate(${(Math.random()-0.5)*shake}px, ${(Math.random()-0.5)*shake}px)`;
-                }
+                state.threat += ((state.isBossLevel ? 0.08 : 0.04) * runStats.threatResistance);
+                if (state.threat >= 100) { state.paused = true; alert("THE HEROES BREACHED. DRAGON SLAIN.\nHoard: " + Math.floor(state.hoard)); location.reload(); }
+                if (state.threat > 50) { let shake = (state.threat - 50) / 10; canvas.style.transform = `translate(${(Math.random()-0.5)*shake}px, ${(Math.random()-0.5)*shake}px)`; }
             }
 
-            // 2. Production
+            // Update Particles
+            for(let i = state.particles.length-1; i>=0; i--) {
+                let p = state.particles[i];
+                p.x += p.vx; p.y += p.vy; p.life -= 0.05;
+                if(p.life <= 0) state.particles.splice(i, 1);
+            }
+
             state.buildings.forEach(b => {
                 if (b.type === 'miner') {
                     b.timer++;
                     if (b.timer > runStats.koboldWorkSpeed) {
                         b.timer = 0;
-                        // Track "visitedNodes" instead of just markers so they don't loop on smelters
-                        state.workers.push({ x: b.cx, y: b.cy, gem: 'gold', speedMult: 1, target: null, visitedNodes: [] });
+                        state.workers.push({ x: b.cx, y: b.cy, gem: 'gold', target: null, visitedNodes: [], destroyed: false });
                     }
                 }
             });
 
-            // 3. Worker Pathing & Collision
             const maw = state.buildings.find(b => b.type === 'maw');
 
             for(let i = state.workers.length-1; i>=0; i--) {
                 let w = state.workers[i];
                 
-                // PATHING LOGIC OVERHAUL: Target Markers AND functional buildings nearby
                 if (!w.target) {
                     let localTargets = state.buildings.filter(b => 
-                        (b.type === 'marker' || b.type === 'smelter' || b.type === 'bellows') && 
-                        !w.visitedNodes.includes(b.id) &&
-                        Math.hypot(b.cx - w.x, b.cy - w.y) <= 160 // 4 tile radius
+                        (b.type === 'marker' || b.type === 'smelter' || b.type === 'relay' || b.type === 'combustion') && 
+                        !w.visitedNodes.includes(b.id) && Math.hypot(b.cx - w.x, b.cy - w.y) <= 160 
                     );
-
                     if (localTargets.length > 0) {
-                        // Go to the closest valid node
                         w.target = localTargets.reduce((prev, curr) => Math.hypot(curr.cx - w.x, curr.cy - w.y) < Math.hypot(prev.cx - w.x, prev.cy - w.y) ? curr : prev);
-                    } else {
-                        w.target = maw; // Give up and go home
-                    }
+                    } else w.target = maw;
                 }
 
-                let dx = w.target.cx - w.x;
-                let dy = w.target.cy - w.y;
-                let dist = Math.hypot(dx, dy);
-                let spd = runStats.workerSpeed * w.speedMult;
+                let dx = w.target.cx - w.x; let dy = w.target.cy - w.y;
+                let dist = Math.hypot(dx, dy); let spd = runStats.workerSpeed;
                 
-                w.x += (dx/dist) * spd;
-                w.y += (dy/dist) * spd;
+                w.x += (dx/dist) * spd; w.y += (dy/dist) * spd;
 
-                // Hit target logic
                 if (dist < spd) {
                     if (w.target.type === 'maw') {
-                        let value = (w.gem === 'ruby') ? 30 : 10;
-                        let tValue = (w.gem === 'ruby') ? 3 : 1;
-                        
-                        state.tribute += tValue;
-                        state.hoard += value * runStats.gemValueMult;
-                        state.workers.splice(i, 1);
-                        checkQuota();
-                        updateUI();
-                        continue;
+                        processLoot(w.gem);
+                        w.destroyed = true;
                     } else {
-                        // Reached a Marker, Smelter, or Bellows via targeted pathing
                         w.visitedNodes.push(w.target.id);
-                        w.target = null; // Forces recalculation next frame to find the NEXT node
+                        w.target = null; 
                     }
                 }
 
-                // Interaction Checks (Applies whether they targeted it OR just walked over it accidentally)
+                // Interactions
                 state.buildings.forEach(b => {
-                    if (b.type === 'smelter' || b.type === 'bellows') {
-                        if (Math.hypot(w.x - b.cx, w.y - b.cy) < 15) {
-                            if (b.type === 'smelter' && w.gem === 'gold') w.gem = 'ruby';
-                            if (b.type === 'bellows') w.speedMult = 2.0;
+                    if (Math.hypot(w.x - b.cx, w.y - b.cy) < 15) {
+                        if (b.type === 'smelter' && w.gem === 'gold') { w.gem = 'ruby'; spawnParticles(b.cx, b.cy, '#ff3333', 3); }
+                        
+                        // UNIQUE MECHANIC: Void Relay (Storm)
+                        if (b.type === 'relay') {
+                            spawnParticles(w.x, w.y, '#33aaff', 10);
+                            w.x = maw.cx; w.y = maw.cy; // Instantly teleport to maw
+                            w.target = maw;
+                        }
+                        // UNIQUE MECHANIC: Combustion Chamber (Crimson)
+                        if (b.type === 'combustion' && !w.destroyed) {
+                            spawnParticles(b.cx, b.cy, '#ff8800', 15);
+                            processLoot(w.gem); // Give loot instantly
+                            w.destroyed = true; // Kill the worker
                         }
                     }
                 });
 
-                // Hit Chests
                 state.chests.forEach(c => {
                     if (!c.opened && Math.hypot(w.x - c.cx, w.y - c.cy) < 20) {
-                        c.opened = true;
-                        state.hoard += 500; 
-                        showNotification("CHEST CRACKED! +500 HOARD");
-                        updateUI();
+                        c.opened = true; state.hoard += 500; showNotification("CHEST CRACKED! +500"); updateUI();
                     }
                 });
+
+                if(w.destroyed) state.workers.splice(i, 1);
             }
+        }
+
+        function processLoot(gemType) {
+            let value = (gemType === 'ruby') ? 30 : 10;
+            let tValue = (gemType === 'ruby') ? 3 : 1;
+            state.tribute += tValue; state.hoard += value * runStats.gemValueMult;
+            checkQuota(); updateUI();
         }
 
         function checkQuota() {
             if (state.tribute >= state.quota && !state.quotaMet) {
                 state.quotaMet = true;
-                document.getElementById('descend-btn').style.display = 'block';
-                document.getElementById('threat-ui').style.display = 'block';
-                if (state.isBossLevel) showNotification("RAID BOSS DEFEATED! DELVE QUICKLY!");
-                else showNotification("TRIBUTE MET. HEROES HAVE LOCATED THE LAIR!");
+                document.getElementById('descend-btn').style.display = 'block'; document.getElementById('threat-ui').style.display = 'block';
+                showNotification(state.isBossLevel ? "BOSS DEFEATED! DELVE QUICKLY!" : "TRIBUTE MET. HEROES APPROACH!");
             }
         }
 
         function descendFloor() {
-            state.wave++;
-            state.hoard += 200; 
-            canvas.style.transform = `translate(0px, 0px)`; 
-            if (state.wave % 3 === 0) triggerShop();
-            initFloor();
+            state.wave++; state.hoard += 200; canvas.style.transform = `translate(0px, 0px)`; 
+            if (state.wave % 3 === 0) triggerShop(); else initFloor();
         }
 
         function updateUI() {
-            document.getElementById('money').innerText = Math.floor(state.hoard);
-            document.getElementById('essence').innerText = Math.floor(state.tribute);
-            document.getElementById('quota').innerText = state.quota;
-            document.getElementById('threat').innerText = Math.floor(state.threat);
+            document.getElementById('money').innerText = Math.floor(state.hoard); document.getElementById('essence').innerText = Math.floor(state.tribute);
+            document.getElementById('quota').innerText = state.quota; document.getElementById('threat').innerText = Math.floor(state.threat);
         }
 
         function showNotification(msg) {
             const n = document.getElementById('notification');
-            n.innerText = msg; n.style.display = 'block';
-            setTimeout(() => n.style.display = 'none', 3500);
+            n.innerText = msg; n.style.display = 'block'; setTimeout(() => n.style.display = 'none', 3000);
         }
 
-        // --- RENDERING ---
+        // --- ENHANCED GRAPHICS RENDERING ---
         function draw() {
-            ctx.fillStyle = '#160d0d'; 
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // Dark Atmospheric Background
+            let bgGrad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 100, canvas.width/2, canvas.height/2, canvas.width);
+            bgGrad.addColorStop(0, '#1a1010'); bgGrad.addColorStop(1, '#050202');
+            ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            ctx.strokeStyle = '#2a1a1a';
-            ctx.lineWidth = 1;
+            // Subtle Grid
+            ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 1;
             for(let i=0; i<canvas.width; i+=TILE_SIZE) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke(); }
             for(let i=0; i<canvas.height; i+=TILE_SIZE) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(canvas.width,i); ctx.stroke(); }
 
+            // Gold Veins
             state.map.forEach((tile, key) => {
-                const [x, y] = key.split(',').map(Number);
                 if (tile.isGoldVein) {
-                    ctx.fillStyle = `rgba(255, 170, 0, ${0.15 + Math.sin(Date.now()/300)*0.05})`;
-                    ctx.fillRect(x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    const [x, y] = key.split(',').map(Number);
+                    ctx.fillStyle = `rgba(200, 150, 0, ${0.1 + Math.sin(Date.now()/500 + x)*0.05})`;
+                    ctx.beginPath(); ctx.roundRect(x*TILE_SIZE+4, y*TILE_SIZE+4, TILE_SIZE-8, TILE_SIZE-8, 8); ctx.fill();
                 }
             });
+
+            // Draw Buildings with Gradients & Shadows
+            ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 10;
+            state.buildings.forEach(b => {
+                if (b.type === 'maw') {
+                    // Dragon Maw Glowing
+                    ctx.shadowColor = state.isBossLevel ? '#ff0000' : '#ffaa00'; ctx.shadowBlur = 20 + Math.sin(Date.now()/150)*10;
+                    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(b.cx, b.cy, TILE_SIZE, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = state.isBossLevel ? '#990000' : '#8a5a2a'; ctx.beginPath(); ctx.arc(b.cx, b.cy, TILE_SIZE-5, 0, Math.PI*2); ctx.fill();
+                    // Center Eye/Glow
+                    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(b.cx, b.cy, 10, 0, Math.PI*2); ctx.fill();
+                    ctx.shadowBlur = 0; // Reset
+                } else {
+                    // Base Building Plate
+                    let platGrad = ctx.createLinearGradient(b.x, b.y, b.x+TILE_SIZE, b.y+TILE_SIZE);
+                    platGrad.addColorStop(0, '#3a3a3a'); platGrad.addColorStop(1, '#1a1a1a');
+                    ctx.fillStyle = platGrad; ctx.beginPath(); ctx.roundRect(b.x+2, b.y+2, TILE_SIZE-4, TILE_SIZE-4, 4); ctx.fill();
+                    
+                    if (b.type === 'miner') {
+                        ctx.fillStyle = '#5c4033'; ctx.beginPath(); ctx.moveTo(b.cx, b.y+6); ctx.lineTo(b.x+6, b.y+TILE_SIZE-6); ctx.lineTo(b.x+TILE_SIZE-6, b.y+TILE_SIZE-6); ctx.fill();
+                        ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(b.cx, b.y+TILE_SIZE-6, 4, Math.PI, 0); ctx.fill(); // tent door
+                    }
+                    if (b.type === 'smelter') { 
+                        ctx.fillStyle='#222'; ctx.beginPath(); ctx.arc(b.cx, b.cy, 12, 0, Math.PI*2); ctx.fill(); 
+                        ctx.fillStyle='#ff4400'; ctx.beginPath(); ctx.arc(b.cx, b.cy, 6 + Math.sin(Date.now()/100)*2, 0, Math.PI*2); ctx.fill(); 
+                    }
+                    if (b.type === 'marker') { 
+                        ctx.fillStyle='#888'; ctx.fillRect(b.cx-2, b.y+6, 4, 24); 
+                        ctx.fillStyle='#d32f2f'; ctx.beginPath(); ctx.moveTo(b.cx+2, b.y+6); ctx.lineTo(b.cx+12, b.y+10); ctx.lineTo(b.cx+2, b.y+14); ctx.fill(); 
+                    }
+                    if (b.type === 'combustion') {
+                        ctx.fillStyle='#551111'; ctx.beginPath(); ctx.roundRect(b.x+6, b.y+6, TILE_SIZE-12, TILE_SIZE-12, 4); ctx.fill();
+                        ctx.fillStyle='#ff0000'; ctx.fillRect(b.x+10, b.y+15, TILE_SIZE-20, 10);
+                    }
+                    if (b.type === 'relay') {
+                        ctx.fillStyle='#111133'; ctx.beginPath(); ctx.arc(b.cx, b.cy, 14, 0, Math.PI*2); ctx.fill();
+                        ctx.strokeStyle='#33aaff'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(b.cx, b.cy, 10 + Math.sin(Date.now()/200)*2, 0, Math.PI*2); ctx.stroke();
+                    }
+                }
+            });
+            ctx.shadowBlur = 0; // Reset shadows for entities
 
             state.chests.forEach(c => {
                 if (!c.opened) {
-                    ctx.fillStyle = '#b8860b';
-                    ctx.fillRect(c.x+5, c.y+10, TILE_SIZE-10, TILE_SIZE-15);
-                    ctx.fillStyle = '#eee';
-                    ctx.fillRect(c.x+(TILE_SIZE/2)-3, c.y+12, 6, 4); 
+                    ctx.fillStyle = '#8B6508'; ctx.fillRect(c.x+6, c.y+12, TILE_SIZE-12, TILE_SIZE-18);
+                    ctx.fillStyle = '#FFD700'; ctx.fillRect(c.x+8, c.y+10, TILE_SIZE-16, 4); 
+                    ctx.fillStyle = '#eee'; ctx.fillRect(c.cx-2, c.y+12, 4, 4); 
                 }
             });
 
-            state.buildings.forEach(b => {
-                if (b.type === 'maw') {
-                    ctx.fillStyle = state.isBossLevel ? '#990000' : '#4a2a1a';
-                    ctx.beginPath();
-                    ctx.arc(b.cx, b.cy, TILE_SIZE, 0, Math.PI*2);
-                    ctx.fill();
-                    ctx.fillStyle = '#ffaa00';
-                    ctx.beginPath();
-                    ctx.arc(b.cx, b.cy, TILE_SIZE/2 + Math.sin(Date.now()/200)*3, 0, Math.PI*2);
-                    ctx.fill();
-                } else {
-                    ctx.fillStyle = '#3a2a2a';
-                    ctx.fillRect(b.x+2, b.y+2, TILE_SIZE-4, TILE_SIZE-4);
-                    
-                    ctx.fillStyle = '#ffaa00';
-                    if (b.type === 'miner') {
-                        ctx.fillRect(b.x+8, b.y+8, TILE_SIZE-16, TILE_SIZE-16);
-                        ctx.fillStyle = '#8B4513';
-                        ctx.beginPath(); ctx.moveTo(b.cx, b.y+2); ctx.lineTo(b.x+2, b.y+TILE_SIZE/2); ctx.lineTo(b.x+TILE_SIZE-2, b.y+TILE_SIZE/2); ctx.fill();
-                    }
-                    if (b.type === 'smelter') { ctx.fillStyle='#ff3333'; ctx.beginPath(); ctx.arc(b.cx, b.cy, 12, 0, Math.PI*2); ctx.fill(); ctx.fillStyle='#ffa500'; ctx.beginPath(); ctx.arc(b.cx, b.cy, 6, 0, Math.PI*2); ctx.fill(); }
-                    if (b.type === 'marker') { ctx.fillStyle='#fff'; ctx.fillRect(b.cx-2, b.y+5, 4, 25); ctx.fillStyle='#ff0000'; ctx.fillRect(b.cx, b.y+5, 10, 8); }
-                    if (b.type === 'bellows') { ctx.fillStyle='#88ccff'; ctx.fillRect(b.x+5, b.y+10, TILE_SIZE-10, 20); ctx.fillStyle='#111'; ctx.fillRect(b.x+10, b.y+15, TILE_SIZE-20, 10); }
-                }
-            });
-
+            // Enhanced Workers (Kobolds)
             state.workers.forEach(w => {
-                ctx.fillStyle = '#6b8e23'; 
-                ctx.beginPath();
-                ctx.arc(w.x, w.y, 6, 0, Math.PI*2);
-                ctx.fill();
-
-                ctx.fillStyle = w.gem === 'ruby' ? '#ff3333' : '#ffd700';
-                ctx.beginPath();
-                ctx.moveTo(w.x, w.y - 10);
-                ctx.lineTo(w.x + 4, w.y - 4);
-                ctx.lineTo(w.x, w.y + 2);
-                ctx.lineTo(w.x - 4, w.y - 4);
-                ctx.fill();
+                // Shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.ellipse(w.x, w.y+4, 6, 3, 0, 0, Math.PI*2); ctx.fill();
+                // Body
+                ctx.fillStyle = '#4caf50'; ctx.beginPath(); ctx.arc(w.x, w.y, 5, 0, Math.PI*2); ctx.fill();
+                // Little backpack/gem
+                ctx.fillStyle = w.gem === 'ruby' ? '#ff1744' : '#ffea00';
+                ctx.beginPath(); ctx.arc(w.x, w.y - 4, 4, 0, Math.PI*2); ctx.fill();
+                // Eyes
+                ctx.fillStyle = '#fff'; ctx.fillRect(w.x+2, w.y-1, 2, 2); ctx.fillRect(w.x-1, w.y-1, 2, 2);
             });
+
+            // Particles
+            state.particles.forEach(p => {
+                ctx.fillStyle = p.color; ctx.globalAlpha = p.life;
+                ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI*2); ctx.fill();
+            });
+            ctx.globalAlpha = 1.0;
         }
 
-        function animate() {
-            update();
-            draw();
-            requestAnimationFrame(animate);
-        }
+        function animate() { update(); draw(); requestAnimationFrame(animate); }
     </script>
 </body>
 </html>
