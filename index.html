@@ -160,7 +160,6 @@
             updateUI(); renderBlueprints();
         }
 
-        // ... [Shop logic remains the same, hidden for brevity in explanation but intact in code] ...
         function triggerShop() {
             state.paused = true; document.getElementById('shop-overlay').style.display = 'flex';
             const shopUI = document.getElementById('shop-cards'); shopUI.innerHTML = '';
