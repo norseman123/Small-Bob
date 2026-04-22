@@ -99,19 +99,19 @@
             map: new Map()
         };
 
-        // --- PERMANENT RUN UPGRADES (Artifacts/Stats) ---
+        // --- PERMANENT RUN UPGRADES ---
         let runStats = {
             workerSpeed: 2.5,
             gemValueMult: 1.0,
             threatResistance: 1.0,
-            koboldWorkSpeed: 100 // Lower is faster
+            koboldWorkSpeed: 100 
         };
 
         const CATALOG = {
             miner: { cost: 50, name: '⛏️ MINING CAMP', type: 'miner', desc: 'Spawns Kobolds carrying gold.' },
-            hoard_marker: { cost: 20, name: '🚩 ROUTING POST', type: 'marker', desc: 'Forces Kobolds to walk to it first.' },
-            smelter: { cost: 150, name: '🔥 SMELTER', type: 'smelter', desc: 'Melts gold into Rubies. Must be walked over.' },
-            bellows: { cost: 200, name: '💨 WIND TUNNEL', type: 'bellows', desc: 'Speeds up Kobolds that walk through.' }
+            hoard_marker: { cost: 20, name: '🚩 ROUTING POST', type: 'marker', desc: 'Creates a localized path.' },
+            smelter: { cost: 150, name: '🔥 SMELTER', type: 'smelter', desc: 'Melts gold into Rubies. Magnetizes workers.' },
+            bellows: { cost: 200, name: '💨 WIND TUNNEL', type: 'bellows', desc: 'Speeds up Kobolds. Magnetizes workers.' }
         };
 
         function startGame(flight) {
@@ -135,7 +135,6 @@
             state.workers = [];
             state.chests = [];
             
-            // Boss Check
             state.isBossLevel = (state.wave % 5 === 0);
             state.quota = Math.floor(50 + (state.wave * 40));
             if (state.isBossLevel) {
@@ -149,7 +148,6 @@
             document.getElementById('descend-btn').style.display = 'none';
             document.getElementById('threat-ui').style.display = 'none';
             
-            // Generate Cave
             state.map.clear();
             for(let x=0; x<Math.floor(canvas.width/TILE_SIZE); x++) {
                 for(let y=0; y<Math.floor(canvas.height/TILE_SIZE); y++) {
@@ -157,12 +155,10 @@
                 }
             }
             
-            // Add Dragon's Maw (Center)
             const mx = Math.floor(canvas.width/TILE_SIZE/2);
             const my = Math.floor(canvas.height/TILE_SIZE/2);
             state.buildings.push({ id: 'maw', type: 'maw', x: mx*TILE_SIZE, y: my*TILE_SIZE, cx: mx*TILE_SIZE + 20, cy: my*TILE_SIZE + 20 });
             
-            // Random Chests
             if (Math.random() < 0.4 || state.isBossLevel) {
                 const cx = Math.floor(Math.random() * (canvas.width/TILE_SIZE));
                 const cy = Math.floor(Math.random() * (canvas.height/TILE_SIZE));
@@ -244,7 +240,7 @@
             if (state.hoard >= price) {
                 state.hoard -= price;
                 state.buildings.push({
-                    id: Math.random().toString(36).substr(2, 9), // Unique ID
+                    id: Math.random().toString(36).substr(2, 9), 
                     type: state.selected,
                     x: gx * TILE_SIZE, y: gy * TILE_SIZE,
                     cx: gx * TILE_SIZE + 20, cy: gy * TILE_SIZE + 20,
@@ -284,7 +280,8 @@
                     b.timer++;
                     if (b.timer > runStats.koboldWorkSpeed) {
                         b.timer = 0;
-                        state.workers.push({ x: b.cx, y: b.cy, gem: 'gold', speedMult: 1, target: null, visitedMarkers: [] });
+                        // Track "visitedNodes" instead of just markers so they don't loop on smelters
+                        state.workers.push({ x: b.cx, y: b.cy, gem: 'gold', speedMult: 1, target: null, visitedNodes: [] });
                     }
                 }
             });
@@ -295,14 +292,19 @@
             for(let i = state.workers.length-1; i>=0; i--) {
                 let w = state.workers[i];
                 
-                // If worker has no target, find next unvisited marker, otherwise go to Maw
+                // PATHING LOGIC OVERHAUL: Target Markers AND functional buildings nearby
                 if (!w.target) {
-                    let unvisitedMarkers = state.buildings.filter(b => b.type === 'marker' && !w.visitedMarkers.includes(b.id));
-                    if (unvisitedMarkers.length > 0) {
-                        // Go to closest marker
-                        w.target = unvisitedMarkers.reduce((prev, curr) => Math.hypot(curr.cx - w.x, curr.cy - w.y) < Math.hypot(prev.cx - w.x, prev.cy - w.y) ? curr : prev);
+                    let localTargets = state.buildings.filter(b => 
+                        (b.type === 'marker' || b.type === 'smelter' || b.type === 'bellows') && 
+                        !w.visitedNodes.includes(b.id) &&
+                        Math.hypot(b.cx - w.x, b.cy - w.y) <= 160 // 4 tile radius
+                    );
+
+                    if (localTargets.length > 0) {
+                        // Go to the closest valid node
+                        w.target = localTargets.reduce((prev, curr) => Math.hypot(curr.cx - w.x, curr.cy - w.y) < Math.hypot(prev.cx - w.x, prev.cy - w.y) ? curr : prev);
                     } else {
-                        w.target = maw;
+                        w.target = maw; // Give up and go home
                     }
                 }
 
@@ -326,23 +328,24 @@
                         checkQuota();
                         updateUI();
                         continue;
-                    } else if (w.target.type === 'marker') {
-                        w.visitedMarkers.push(w.target.id);
-                        w.target = null; // Forces recalculation next frame
+                    } else {
+                        // Reached a Marker, Smelter, or Bellows via targeted pathing
+                        w.visitedNodes.push(w.target.id);
+                        w.target = null; // Forces recalculation next frame to find the NEXT node
                     }
                 }
 
-                // Check collisions with buildings they walk over (Smelters / Bellows)
+                // Interaction Checks (Applies whether they targeted it OR just walked over it accidentally)
                 state.buildings.forEach(b => {
                     if (b.type === 'smelter' || b.type === 'bellows') {
-                        if (Math.hypot(w.x - b.cx, w.y - b.cy) < 15) { // Collision radius
+                        if (Math.hypot(w.x - b.cx, w.y - b.cy) < 15) {
                             if (b.type === 'smelter' && w.gem === 'gold') w.gem = 'ruby';
                             if (b.type === 'bellows') w.speedMult = 2.0;
                         }
                     }
                 });
 
-                // Check Chests
+                // Hit Chests
                 state.chests.forEach(c => {
                     if (!c.opened && Math.hypot(w.x - c.cx, w.y - c.cy) < 20) {
                         c.opened = true;
@@ -390,7 +393,6 @@
             ctx.fillStyle = '#160d0d'; 
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Grid / Veins
             ctx.strokeStyle = '#2a1a1a';
             ctx.lineWidth = 1;
             for(let i=0; i<canvas.width; i+=TILE_SIZE) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke(); }
@@ -404,7 +406,6 @@
                 }
             });
 
-            // Chests
             state.chests.forEach(c => {
                 if (!c.opened) {
                     ctx.fillStyle = '#b8860b';
@@ -414,7 +415,6 @@
                 }
             });
 
-            // Buildings
             state.buildings.forEach(b => {
                 if (b.type === 'maw') {
                     ctx.fillStyle = state.isBossLevel ? '#990000' : '#4a2a1a';
@@ -432,7 +432,6 @@
                     ctx.fillStyle = '#ffaa00';
                     if (b.type === 'miner') {
                         ctx.fillRect(b.x+8, b.y+8, TILE_SIZE-16, TILE_SIZE-16);
-                        // Little tent top
                         ctx.fillStyle = '#8B4513';
                         ctx.beginPath(); ctx.moveTo(b.cx, b.y+2); ctx.lineTo(b.x+2, b.y+TILE_SIZE/2); ctx.lineTo(b.x+TILE_SIZE-2, b.y+TILE_SIZE/2); ctx.fill();
                     }
@@ -442,15 +441,12 @@
                 }
             });
 
-            // Kobold Workers
             state.workers.forEach(w => {
-                // Draw Kobold (Little green circle)
                 ctx.fillStyle = '#6b8e23'; 
                 ctx.beginPath();
                 ctx.arc(w.x, w.y, 6, 0, Math.PI*2);
                 ctx.fill();
 
-                // Draw the gem they are carrying slightly offset
                 ctx.fillStyle = w.gem === 'ruby' ? '#ff3333' : '#ffd700';
                 ctx.beginPath();
                 ctx.moveTo(w.x, w.y - 10);
