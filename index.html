@@ -20,6 +20,8 @@
         button.blueprint-btn { display: block; width: 100%; background: #1a1a24; color: #aaa; border: 1px solid #444; border-left: 3px solid #555; padding: 10px 15px; margin-bottom: 8px; text-align: left; cursor: pointer; transition: all 0.2s ease; font-family: inherit; font-size: 1rem; }
         button.blueprint-btn:hover { background: #252535; color: #fff; border-left-color: #bc13fe; box-shadow: 0 0 10px rgba(188, 19, 254, 0.3); }
         button.blueprint-btn.active { background: #2a1b38; border-color: #bc13fe; border-left: 5px solid #bc13fe; color: #fff; box-shadow: inset 0 0 10px rgba(188, 19, 254, 0.2); }
+        button.surrender-btn { border-left-color: #ff003c; margin-top: 20px; text-align: center; color: #ff003c; }
+        button.surrender-btn:hover { border-color: #ff003c; background: #3a1018; color: #fff; box-shadow: 0 0 15px rgba(255, 0, 60, 0.4); }
         
         #notification { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(255, 0, 85, 0.9); padding: 10px 20px; border-radius: 4px; font-weight: bold; display: none; z-index: 20; box-shadow: 0 0 15px #ff0055; pointer-events: none;}
         
@@ -31,13 +33,36 @@
         .card .exclusive { color: #ff0055; font-weight: bold; margin-top: 15px; font-size: 0.9rem;}
 
         #floor-transition { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; pointer-events: none; opacity: 0; transition: opacity 0.6s; z-index: 10000; }
+        .ash-text { color: #8a2be2; font-weight: bold; text-shadow: 0 0 10px rgba(138, 43, 226, 0.6); }
     </style>
 </head>
 <body>
 
     <div id="floor-transition"></div>
 
-    <div id="start-overlay" class="overlay">
+    <div id="hub-overlay" class="overlay">
+        <h1 style="text-shadow: 0 0 15px #8a2be2; font-size: 3rem;">THE ABYSSAL HUB</h1>
+        <p style="color: #aaa; margin-bottom: 20px;">Spend Void Ash to empower your next descent.</p>
+        <div class="stat" style="margin-bottom: 20px; font-size: 1.5rem;">VOID ASH: <span class="ash-text" id="hub-ash">0</span></div>
+        
+        <div class="cards-container">
+            <div class="card" onclick="buyUpgrade('greedStart')" style="border-color: #ffd700;">
+                <div class="type">Meta Upgrade</div>
+                <h3>GREED'S MOMENTUM</h3>
+                <p>Start runs with a higher base Greed Multiplier (+0.1 per level).</p>
+                <div class="exclusive">Level: <span id="lvl-greedStart">0</span><br><span style="color:#aaa;">Cost: <span id="cost-greedStart">10</span> Ash</span></div>
+            </div>
+            <div class="card" onclick="buyUpgrade('casingDurability')" style="border-color: #ff5500;">
+                <div class="type">Meta Upgrade</div>
+                <h3>STURDIER CASING</h3>
+                <p>Ignited buildings burn slightly longer (+50 life per level).</p>
+                <div class="exclusive">Level: <span id="lvl-casingDurability">0</span><br><span style="color:#aaa;">Cost: <span id="cost-casingDurability">10</span> Ash</span></div>
+            </div>
+        </div>
+        <button class="blueprint-btn" style="width: 250px; margin-top: 40px; text-align: center; font-size: 1.2rem; padding: 15px;" onclick="showSectSelect()">PREPARE DESCENT</button>
+    </div>
+
+    <div id="start-overlay" class="overlay" style="display: none;">
         <h1 style="text-shadow: 0 0 15px #bc13fe; font-size: 2.5rem;">CHOOSE YOUR SECT</h1>
         <p style="color: #aaa; margin-bottom: 20px;">Your sect determines your starting tools and unique Ignition effect.</p>
         <div class="cards-container">
@@ -77,12 +102,14 @@
                 <b>SHIFT + Click</b> to SELL (within 10s).<br>
                 <b>Right-Click</b> to IGNITE.
             </div>
+            <button class="blueprint-btn surrender-btn" onclick="surrender()">SURRENDER & RETURN</button>
         </div>
     </div>
 
     <div id="draft-overlay" class="overlay" style="display: none;">
         <h1 id="draft-title" style="text-shadow: 0 0 15px #bc13fe;">TITHE MET.</h1>
-        <p id="greed-info" style="color: #ffd700; margin-bottom: 20px;"></p>
+        <p id="greed-info" style="color: #ffd700; margin-bottom: 10px;"></p>
+        <p id="ash-info" class="ash-text" style="margin-bottom: 20px; font-size: 1.2rem;"></p>
         <div class="cards-container" id="draft-cards"></div>
     </div>
 
@@ -114,6 +141,56 @@
             paused: true, unlockedBlueprints: [], globalTime: 0, buildingsChanged: false
         };
 
+        // --- META PROGRESSION (LOCAL STORAGE) ---
+        let metaState = {
+            voidAsh: 0,
+            upgrades: { greedStart: 0, casingDurability: 0 }
+        };
+
+        function saveMetaState() {
+            localStorage.setItem('occult_factory_meta', JSON.stringify(metaState));
+        }
+
+        function loadMetaState() {
+            const saved = localStorage.getItem('occult_factory_meta');
+            if (saved) metaState = JSON.parse(saved);
+        }
+
+        function updateHubUI() {
+            document.getElementById('hub-ash').innerText = metaState.voidAsh;
+            document.getElementById('lvl-greedStart').innerText = metaState.upgrades.greedStart;
+            document.getElementById('cost-greedStart').innerText = 10 + (metaState.upgrades.greedStart * 15);
+            document.getElementById('lvl-casingDurability').innerText = metaState.upgrades.casingDurability;
+            document.getElementById('cost-casingDurability').innerText = 10 + (metaState.upgrades.casingDurability * 15);
+        }
+
+        window.buyUpgrade = (type) => {
+            let cost = 10 + (metaState.upgrades[type] * 15);
+            if (metaState.voidAsh >= cost) {
+                metaState.voidAsh -= cost;
+                metaState.upgrades[type]++;
+                saveMetaState();
+                updateHubUI();
+            }
+        };
+
+        window.showSectSelect = () => {
+            document.getElementById('hub-overlay').style.display = 'none';
+            document.getElementById('start-overlay').style.display = 'flex';
+        };
+
+        window.surrender = () => {
+            state.paused = true;
+            document.getElementById('ui').style.display = 'none';
+            document.getElementById('hub-overlay').style.display = 'flex';
+            updateHubUI();
+        };
+
+        // Initialize Hub
+        loadMetaState();
+        updateHubUI();
+
+        // --- CATALOGS ---
         const CATALOG = {
             aether_pump: { cost: 50, type: 'aether_pump', name: '💨 AETHER PUMP' },
             gilder: { cost: 150, type: 'gilder', name: '✨ GILDER' },
@@ -153,9 +230,17 @@
         let startingFunds = 0;
 
         window.startGame = (sect) => {
-            state.sect = sect;
+            state = { // Reset Run State
+                sect: sect, money: 0, essence: 0, quota: 50, wave: 1,
+                selectedTool: null, map: new Map(), buildings: [], workers: [],
+                paused: false, unlockedBlueprints: [], globalTime: 0, buildingsChanged: false
+            };
+
             document.getElementById('start-overlay').style.display = 'none';
             document.getElementById('ui').style.display = 'flex';
+            
+            // Apply Meta Upgrades
+            runStats.greedMult = 1.0 + (metaState.upgrades.greedStart * 0.1);
             
             if (sect === 'alchemists') {
                 startingFunds = 500; state.unlockedBlueprints = ['aether_pump', 'gilder'];
@@ -167,10 +252,8 @@
 
             state.money = startingFunds;
             buildUI();
-            state.paused = false;
             initMap();
             updateUIStats();
-            draw();
         };
 
         function buildUI() {
@@ -255,9 +338,11 @@
             let b = state.buildings.find(bld => bld.x === gridX * TILE_SIZE && bld.y === gridY * TILE_SIZE && bld.type !== 'maw');
             if (b && !b.isIgnited) {
                 b.isIgnited = true;
-                if (state.sect === 'alchemists') { b.life = 900; b.speedMod = 2; showNotification("AURA OF PURITY ACTIVE!"); }
-                else if (state.sect === 'bloodbound') { b.life = 300; b.speedMod = 3; showNotification("BLOOD SACRIFICE TRIGGERED!"); }
-                else if (state.sect === 'machinists') { b.life = 450; b.speedMod = 2.5; showNotification("CHAIN-REACTION INITIATED!"); }
+                let bonusLife = metaState.upgrades.casingDurability * 50;
+
+                if (state.sect === 'alchemists') { b.life = 900 + bonusLife; b.speedMod = 2; showNotification("AURA OF PURITY ACTIVE!"); }
+                else if (state.sect === 'bloodbound') { b.life = 300 + bonusLife; b.speedMod = 3; showNotification("BLOOD SACRIFICE TRIGGERED!"); }
+                else if (state.sect === 'machinists') { b.life = 450 + bonusLife; b.speedMod = 2.5; showNotification("CHAIN-REACTION INITIATED!"); }
             }
         });
 
@@ -307,12 +392,73 @@
             } else { showNotification("NOT ENOUGH FUNDS!"); }
         });
 
+        // --- DRAFT & PROGRESSION LOGIC ---
+        function triggerDraft() {
+            state.paused = true;
+            let profit = Math.max(0, state.money - startingFunds);
+            runStats.greedMult += (profit / 100) * 0.05;
+            
+            // Meta Progression Rewards
+            let ashEarned = state.wave * 5;
+            metaState.voidAsh += ashEarned;
+            saveMetaState();
+
+            document.getElementById('draft-overlay').style.display = 'flex';
+            document.getElementById('greed-info').innerText = `GREED MULTIPLIER INCREASED TO: x${runStats.greedMult.toFixed(2)}`;
+            document.getElementById('ash-info').innerText = `+${ashEarned} VOID ASH ACQUIRED`;
+            
+            // Generate Draft Pool including Sect Exclusives
+            let availablePool = DRAFT_POOL.filter(item => !state.unlockedBlueprints.includes(item.blueprintId));
+            if (CLASS_DRAFT_POOL[state.sect]) {
+                let sectPool = CLASS_DRAFT_POOL[state.sect].filter(item => !state.unlockedBlueprints.includes(item.blueprintId));
+                availablePool = availablePool.concat(sectPool);
+            }
+
+            availablePool.sort(() => 0.5 - Math.random());
+            let choices = availablePool.slice(0, 3);
+            
+            const cardsContainer = document.getElementById('draft-cards');
+            cardsContainer.innerHTML = '';
+            
+            if (choices.length === 0) {
+                // If out of blueprints, just give a skip button
+                const btn = document.createElement('button');
+                btn.className = 'blueprint-btn';
+                btn.innerText = "PROCEED TO NEXT LAIR";
+                btn.onclick = endDraft;
+                cardsContainer.appendChild(btn);
+            } else {
+                choices.forEach(choice => {
+                    const card = document.createElement('div');
+                    card.className = 'card';
+                    card.innerHTML = `<div class="type">${choice.type}</div><h3>${choice.name}</h3><p>${choice.desc}</p>`;
+                    card.onclick = () => {
+                        state.unlockedBlueprints.push(choice.blueprintId);
+                        buildUI();
+                        endDraft();
+                    };
+                    cardsContainer.appendChild(card);
+                });
+            }
+        }
+
+        function endDraft() {
+            document.getElementById('draft-overlay').style.display = 'none';
+            state.wave++;
+            state.quota = Math.floor(state.quota * 1.5);
+            state.essence = 0;
+            updateUIStats();
+            state.paused = false;
+        }
+
         // --- GAME LOOP ---
         function update() {
             if (state.paused) return;
             state.globalTime += 0.05;
             
             const targetMaw = state.buildings.find(b => b.type === 'maw');
+            if (!targetMaw) return;
+
             const interactables = state.buildings.filter(b => b.type !== 'maw' && !['drill', 'siphon', 'aether_pump', 'quantum_bore', 'soul_well', 'aether_shrine', 'arc_furnace'].includes(b.type));
 
             // Building Logic & Ignitions
@@ -352,9 +498,10 @@
                         
                         // Machinist Chain Reaction
                         if (state.sect === 'machinists') {
+                            let bonusLife = metaState.upgrades.casingDurability * 50;
                             state.buildings.forEach(otherB => {
                                 if (!otherB.isIgnited && otherB.type !== 'maw' && Math.hypot(otherB.cx - b.cx, otherB.cy - b.cy) < TILE_SIZE * 1.5) {
-                                    otherB.isIgnited = true; otherB.life = 450; otherB.speedMod = 2.5;
+                                    otherB.isIgnited = true; otherB.life = 450 + bonusLife; otherB.speedMod = 2.5;
                                     // Arc Furnace Special Interaction
                                     if (otherB.type === 'arc_furnace') {
                                         for(let k=0; k<3; k++) state.workers.push({ x: otherB.cx, y: otherB.cy, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4, trail: [], type: 'plasma', hasSplit: false, speedMult: 2.5, target: null });
@@ -515,118 +662,88 @@
             state.buildingsChanged = false;
         }
 
-        function triggerDraft() {
-            state.paused = true;
-            let profit = Math.max(0, state.money - startingFunds);
-            runStats.greedMult += (profit / 100) * 0.05;
-            document.getElementById('draft-overlay').style.display = 'flex';
-            
-            // Generate Draft Pool including Sect Exclusives
-            let availablePool = DRAFT_POOL.filter(item => !state.unlockedBlueprints.includes(item.blueprintId));
-            if (CLASS_DRAFT_POOL[state.sect]) {
-                let classPool = CLASS_DRAFT_POOL[state.sect].filter(item => !state.unlockedBlueprints.includes(item.blueprintId));
-                availablePool = availablePool.concat(classPool);
-            }
-
-            let choices = availablePool.sort(() => 0.5 - Math.random()).slice(0, 3);
-
-            const container = document.getElementById('draft-cards'); container.innerHTML = '';
-            choices.forEach(c => {
-                const card = document.createElement('div'); card.className = 'card';
-                // Highlight exclusive cards
-                if (c.type === 'Exclusive Blueprint') { card.style.borderColor = '#ff0055'; card.style.boxShadow = '0 0 15px rgba(255, 0, 85, 0.3)'; }
-                
-                card.innerHTML = `<div class="type" style="color:${c.type === 'Exclusive Blueprint' ? '#ff0055' : '#888'}">${c.type}</div><h3>${c.name}</h3><p>${c.desc}</p>`;
-                card.onclick = () => { state.unlockedBlueprints.push(c.blueprintId); buildUI(); nextFloor(); };
-                container.appendChild(card);
-            });
-        }
-
-        function nextFloor() {
-            document.getElementById('floor-transition').style.opacity = '1';
-            setTimeout(() => {
-                state.wave++; state.money = startingFunds; state.essence = 0; state.quota += 50 + (state.wave * 15);
-                state.buildings = []; state.workers = []; initMap(); updateUIStats();
-                document.getElementById('draft-overlay').style.display = 'none';
-                state.paused = false; document.getElementById('floor-transition').style.opacity = '0';
-            }, 600);
-        }
-
+        // --- RENDERING LOGIC ---
         function draw() {
-            if (!state.paused) update();
-            ctx.globalCompositeOperation = 'source-over'; ctx.drawImage(bgCanvas, 0, 0);
-            ctx.globalCompositeOperation = 'lighter';
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(bgCanvas, 0, 0);
 
+            // Draw Leylines and Tiles
             state.map.forEach(tile => {
                 if (tile.isLeyline) {
-                    let pulse = Math.sin(state.globalTime + tile.gridX) * 0.15 + 0.2;
-                    ctx.fillStyle = tile.isCorrupted ? `rgba(255, 0, 60, ${pulse})` : `rgba(188, 19, 254, ${pulse})`;
-                    ctx.beginPath(); ctx.arc(tile.gridX*TILE_SIZE+TILE_SIZE/2, tile.gridY*TILE_SIZE+TILE_SIZE/2, 10, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = tile.isCorrupted ? 'rgba(138, 43, 226, 0.2)' : 'rgba(0, 242, 255, 0.1)';
+                    ctx.fillRect(tile.gridX*TILE_SIZE, tile.gridY*TILE_SIZE, TILE_SIZE, TILE_SIZE);
                 }
             });
 
+            // Draw Buildings
             state.buildings.forEach(b => {
-                ctx.shadowBlur = 15;
-                if (b.type === 'maw') { ctx.fillStyle = '#ff0055'; ctx.shadowColor = '#ff0055'; }
-                else if (['drill', 'quantum_bore'].includes(b.type)) { ctx.fillStyle = '#00f2ff'; ctx.shadowColor = '#00f2ff'; }
-                else if (['siphon', 'vein_splitter'].includes(b.type)) { ctx.fillStyle = '#ff003c'; ctx.shadowColor = '#ff003c'; }
-                else if (['purifier', 'aether_pump'].includes(b.type)) { ctx.fillStyle = '#bc13fe'; ctx.shadowColor = '#bc13fe'; }
-                else if (['splitter', 'gilder'].includes(b.type)) { ctx.fillStyle = '#ffd700'; ctx.shadowColor = '#ffd700'; }
-                else if (b.type === 'accelerator') { ctx.fillStyle = '#00ff41'; ctx.shadowColor = '#00ff41'; }
-                else if (b.type === 'soul_well') { ctx.fillStyle = '#00ffff'; ctx.shadowColor = '#00ffff'; }
-                else if (b.type === 'aether_shrine') { ctx.fillStyle = '#aaddff'; ctx.shadowColor = '#aaddff'; }
-                else if (b.type === 'flesh_vat') { ctx.fillStyle = '#8b0000'; ctx.shadowColor = '#ff003c'; }
-                else if (b.type === 'arc_furnace') { ctx.fillStyle = '#e5ff00'; ctx.shadowColor = '#e5ff00'; }
-                else if (b.type === 'tether') { ctx.fillStyle = '#888'; ctx.shadowColor = '#888'; }
-                else { ctx.fillStyle = '#ffffff'; ctx.shadowColor = '#bc13fe'; }
+                ctx.fillStyle = b.isIgnited ? '#ff5500' : '#444';
+                if (b.type === 'maw') ctx.fillStyle = '#bc13fe';
                 
-                ctx.beginPath(); ctx.arc(b.cx, b.cy, b.type==='maw' || b.type==='altar' ? 14 : 10, 0, Math.PI*2); ctx.fill();
-
-                if (b.type !== 'maw' && Date.now() - b.placedAt <= 10000 && !b.isIgnited) {
-                    ctx.shadowBlur = 0; ctx.strokeStyle = `rgba(255, 255, 255, ${Math.abs(Math.sin(Date.now()/300)) * 0.5})`;
-                    ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(b.cx, b.cy, 12, 0, Math.PI*2); ctx.stroke();
-                }
-
+                ctx.fillRect(b.x + 2, b.y + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+                
                 if (b.isIgnited) {
-                    let col = state.sect === 'alchemists' ? '#bc13fe' : (state.sect === 'bloodbound' ? '#ff003c' : '#ff6a00');
-                    ctx.shadowColor = col; ctx.shadowBlur = 20; ctx.strokeStyle = col; ctx.lineWidth = 3;
-                    ctx.beginPath(); ctx.arc(b.cx, b.cy, 18, 0, Math.PI*2); ctx.stroke();
-                    let maxLife = state.sect === 'alchemists' ? 900 : (state.sect === 'bloodbound' ? 300 : 450);
-                    ctx.shadowBlur = 0; ctx.fillStyle = '#333'; ctx.fillRect(b.x + 2, b.y + TILE_SIZE - 6, TILE_SIZE - 4, 4);
-                    ctx.fillStyle = col; ctx.fillRect(b.x + 2, b.y + TILE_SIZE - 6, (TILE_SIZE - 4) * (b.life / maxLife), 4);
+                    ctx.strokeStyle = '#ff0000';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(b.x, b.y, TILE_SIZE, TILE_SIZE);
+                }
+                
+                // Draw type letter as placeholder icon
+                ctx.fillStyle = '#fff';
+                ctx.font = '14px Courier New';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                if (b.type !== 'maw') {
+                    ctx.fillText(CATALOG[b.type].name.substring(0,2).trim(), b.cx, b.cy);
+                } else {
+                    ctx.fillText("MAW", b.cx, b.cy);
                 }
             });
 
-            ctx.shadowBlur = 0;
+            // Draw Wisps
             state.workers.forEach(w => {
-                let color = '#ffd700'; let glowColor = 'rgba(255, 215, 0, 0.2)';
-                if (w.type === 'void') { color = '#bc13fe'; glowColor = 'rgba(188, 19, 254, 0.2)'; }
-                if (w.type === 'blood') { color = '#ff003c'; glowColor = 'rgba(255, 0, 60, 0.2)'; }
-                if (w.type === 'abyssal') { color = '#ffffff'; glowColor = 'rgba(0, 242, 255, 0.3)'; } 
-                if (w.type === 'dense') { color = '#ff6a00'; glowColor = 'rgba(255, 106, 0, 0.3)'; } 
-                if (w.type === 'soul') { color = '#00ffff'; glowColor = 'rgba(0, 255, 255, 0.3)'; }
-                if (w.type === 'crimson') { color = '#8b0000'; glowColor = 'rgba(255, 0, 0, 0.4)'; }
-                if (w.type === 'eclipse') { color = '#111111'; glowColor = 'rgba(188, 19, 254, 0.6)'; } 
-                if (w.type === 'aether') { color = '#aaddff'; glowColor = 'rgba(170, 221, 255, 0.3)'; }
-                if (w.type === 'astral') { color = '#ffffff'; glowColor = 'rgba(255, 0, 170, 0.8)'; } // Pink aura
-                if (w.type === 'ichor') { color = '#00ff88'; glowColor = 'rgba(0, 255, 136, 0.4)'; }
-                if (w.type === 'plasma') { color = '#e5ff00'; glowColor = 'rgba(229, 255, 0, 0.5)'; }
+                // Determine Wisp Color based on Type
+                let wColor = '#fff';
+                if (w.type === 'gold') wColor = '#ffd700';
+                else if (w.type === 'blood') wColor = '#ff003c';
+                else if (w.type === 'void') wColor = '#8a2be2';
+                else if (w.type === 'soul') wColor = '#00f2ff';
+                else if (w.type === 'aether') wColor = '#bbffcc';
+                else if (w.type === 'plasma') wColor = '#00ff41';
+                else if (w.type === 'ichor') wColor = '#88001b';
+                else if (w.type === 'astral') wColor = '#ffffff';
 
-                let size = ['abyssal', 'crimson', 'eclipse', 'astral', 'ichor'].includes(w.type) ? 12 : 8;
-                let coreSize = ['abyssal', 'crimson', 'eclipse', 'astral', 'ichor'].includes(w.type) ? 4 : 2.5;
-
-                ctx.fillStyle = glowColor; ctx.beginPath(); ctx.arc(w.x, w.y, size, 0, Math.PI*2); ctx.fill();
-                ctx.strokeStyle = color + '66'; ctx.lineWidth = ['abyssal', 'crimson', 'eclipse', 'astral', 'ichor'].includes(w.type) ? 3 : 2;
-                if (w.trail.length > 1) {
-                    ctx.beginPath(); ctx.moveTo(w.trail[0].x, w.trail[0].y);
-                    w.trail.forEach(pt => ctx.lineTo(pt.x, pt.y)); ctx.stroke();
+                ctx.fillStyle = wColor;
+                ctx.beginPath();
+                ctx.arc(w.x, w.y, w.type === 'ichor' || w.type === 'dense' ? 6 : 4, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Trail
+                ctx.strokeStyle = wColor;
+                ctx.globalAlpha = 0.4;
+                ctx.beginPath();
+                if(w.trail.length > 0) {
+                    ctx.moveTo(w.trail[0].x, w.trail[0].y);
+                    for(let i=1; i<w.trail.length; i++) ctx.lineTo(w.trail[i].x, w.trail[i].y);
+                    ctx.stroke();
                 }
-                ctx.fillStyle = color; ctx.beginPath(); ctx.arc(w.x, w.y, coreSize, 0, Math.PI*2); ctx.fill();
+                ctx.globalAlpha = 1.0;
             });
 
+            // Overlay Selection Highlight
+            if (state.selectedTool && !state.paused) {
+                // Get mouse position relative to grid (handled via separate listener if desired, but simplified here)
+                // For a full implementation, you'd track mouse X/Y and draw a translucent box over the hovered tile.
+            }
+
+            if (!state.paused) {
+                update();
+            }
             requestAnimationFrame(draw);
         }
-        draw();
+
+        // Start Canvas Render Loop
+        requestAnimationFrame(draw);
     </script>
 </body>
 </html>
