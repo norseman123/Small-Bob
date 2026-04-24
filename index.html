@@ -597,7 +597,7 @@ window.setTool = (t) => {
                         if (b.type === 'tether' || b.type === 'flesh_vat') return true; 
                         if (w.type === 'gold' && b.type === 'purifier') return true;
                         if (w.type === 'void' && b.type === 'gilder') return true;
-                       if (['void', 'blood', 'gold'].includes(w.type) && b.type === 'altar' && (b.inventory[w.type] || 0) < 1) return true;
+                       if (['void', 'blood', 'gold', 'soul', 'compressed', 'astral'].includes(w.type) && b.type === 'altar' && (b.inventory[w.type] || 0) < 1) return true;
                         if (b.type === 'splitter' && !w.hasSplit) return true;
                         if (w.type === 'blood' && b.type === 'vein_splitter' && !w.hasSplit) return true;
                         if (b.type === 'accelerator' && w.speedMult === 1) return true;
@@ -647,6 +647,37 @@ window.setTool = (t) => {
                         if (inv.void >= 1 && inv.blood >= 1) { inv.void--; inv.blood--; spawnType = 'abyssal'; } 
                         else if (inv.gold >= 1 && inv.blood >= 1) { inv.gold--; inv.blood--; spawnType = 'crimson'; } 
                         else if (inv.gold >= 1 && inv.void >= 1) { inv.gold--; inv.void--; spawnType = 'eclipse'; }
+                        // New Soul Recipes
+                        else if (b.inventory['soul'] >= 1 && b.inventory['void'] >= 1) {
+                            b.inventory['soul']--; b.inventory['void']--;
+                            spawnWisp(b.cx, b.cy, 'phantom'); // Assuming you have a spawn function, or push to state.workers
+                        }
+                        else if (b.inventory['soul'] >= 1 && b.inventory['blood'] >= 1) {
+                           b.inventory['soul']--; b.inventory['blood']--;
+                            spawnWisp(b.cx, b.cy, 'sanguine'); 
+                        }
+                        else if (b.inventory['soul'] >= 1 && b.inventory['gold'] >= 1) {
+                            b.inventory['soul']--; b.inventory['gold']--;
+                            spawnWisp(b.cx, b.cy, 'radiant');
+                        }
+                        // Compressed Recipes
+                    else if (b.inventory['compressed'] >= 1 && b.inventory['void'] >= 1) {
+                        b.inventory['compressed']--; b.inventory['void']--;
+                        spawnWisp(b.cx, b.cy, 'singularity'); // Black hole wisp: Massive Essence multiplier
+                        }
+                        else if (b.inventory['compressed'] >= 1 && b.inventory['gold'] >= 1) {
+                            b.inventory['compressed']--; b.inventory['gold']--;
+                    q        spawnWisp(b.cx, b.cy, 'diamond'); // Pure density: Extreme flat cash
+                        }
+                        // Astral Recipes
+                        else if (b.inventory['astral'] >= 1 && b.inventory['blood'] >= 1) {
+                            b.inventory['astral']--; b.inventory['blood']--;
+                        spawnWisp(b.cx, b.cy, 'cosmic'); // High speed, high cash multiplier
+                        }
+                        else if (b.inventory['astral'] >= 1 && b.inventory['soul'] >= 1) {
+                            b.inventory['astral']--; b.inventory['soul']--;
+                            spawnWisp(b.cx, b.cy, 'ethereal'); // Instantly grants a free quota reduction
+                        }
                         if (spawnType) { newWorkers.push({ x: w.target.cx, y: w.target.cy, vx: 0, vy: 0, trail: [], type: spawnType, hasSplit: false, speedMult: 1.2, target: null, lastVisited: null }); } continue; 
                     }
                 }
