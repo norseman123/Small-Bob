@@ -134,6 +134,7 @@
         };
 
         // --- MAP GENERATION ---
+        // --- MAP GENERATION ---
         function initMap() {
             COLS = Math.ceil(window.innerWidth / TILE_SIZE);
             ROWS = Math.ceil(window.innerHeight / TILE_SIZE);
@@ -144,9 +145,20 @@
                     let isLeyline = Math.random() < 0.05;
                     let isObstacle = Math.random() < 0.08;
                     if (isLeyline) isObstacle = false;
+                    
+                    // --- NEW: DIVERSE LEYLINE TYPES ---
+                    let lType = 'void';
+                    if (isLeyline) {
+                        let pool = ['void'];
+                        if (metaState.upgrades['leyline_blood']) pool.push('blood');
+                        if (metaState.upgrades['leyline_gold']) pool.push('gold');
+                        lType = pool[Math.floor(Math.random() * pool.length)];
+                    }
+
                     state.map.set(`${x},${y}`, { 
                         gridX: x, gridY: y, 
                         isLeyline: isLeyline, 
+                        leylineType: lType,
                         isObstacle: isObstacle, 
                         occupied: isObstacle,
                         isCorrupted: false 
@@ -157,7 +169,6 @@
             // Spawn the Maw
             let cX = Math.floor(COLS / 2);
             let cY = Math.floor(ROWS / 2);
-            // Clear space around the Maw
             for(let dx=-1; dx<=1; dx++) {
                 for(let dy=-1; dy<=1; dy++) {
                     let tile = state.map.get(`${cX+dx},${cY+dy}`);
@@ -166,16 +177,33 @@
             }
             
             state.map.get(`${cX},${cY}`).occupied = true;
-            state.buildings.push({ 
-                type: 'maw', 
-                x: cX * TILE_SIZE, 
-                y: cY * TILE_SIZE, 
-                cx: (cX * TILE_SIZE) + (TILE_SIZE / 2), 
-                cy: (cY * TILE_SIZE) + (TILE_SIZE / 2), 
-                isIgnited: false, 
-                rot: 0 
-            });
+            state.buildings.push({ type: 'maw', x: cX * TILE_SIZE, y: cY * TILE_SIZE, cx: (cX * TILE_SIZE) + (TILE_SIZE / 2), cy: (cY * TILE_SIZE) + (TILE_SIZE / 2), isIgnited: false, rot: 0 });
             
+            // --- NEW: RANDOMIZED CLASS MONUMENTS ---
+            let uniqueType = 'void_resonator'; 
+            if (state.sect === 'alchemists') uniqueType = 'philosophers_stone';
+            if (state.sect === 'grave_keepers') uniqueType = 'charnel_gate';
+            if (state.sect === 'bloodbound') uniqueType = 'beating_heart';
+            if (state.sect === 'machinists') uniqueType = 'tesla_coil';
+
+            // Find all empty tiles at least 5 tiles away from the Maw
+            let validSpots = [];
+            state.map.forEach(tile => {
+                if (!tile.occupied && Math.hypot(tile.gridX - cX, tile.gridY - cY) > 5) {
+                    validSpots.push(tile);
+                }
+            });
+
+            if (validSpots.length > 0) {
+                let spot = validSpots[Math.floor(Math.random() * validSpots.length)];
+                spot.occupied = true;
+                state.buildings.push({
+                    type: uniqueType, x: spot.gridX * TILE_SIZE, y: spot.gridY * TILE_SIZE, 
+                    cx: (spot.gridX * TILE_SIZE) + (TILE_SIZE / 2), cy: (spot.gridY * TILE_SIZE) + (TILE_SIZE / 2), 
+                    rot: 0, timer: 0, inventory: {}, isIgnited: false, isPhantom: false, speedMod: 1, life: Infinity
+                });
+            }
+
             renderStaticBackground(); 
             state.buildingsChanged = true;
         }
@@ -620,9 +648,14 @@
 
             let pulse = (Math.sin(state.globalTime * 2) + 1) / 2; 
 
-            state.map.forEach(tile => {
+        state.map.forEach(tile => {
                 if (tile.isLeyline) {
-                    ctx.fillStyle = tile.isCorrupted ? `rgba(138, 43, 226, ${0.1 + (pulse * 0.15)})` : `rgba(0, 242, 255, ${0.05 + (pulse * 0.1)})`;
+                    let rgb = '0, 242, 255'; // Default Void (Blue)
+                    if (tile.leylineType === 'blood') rgb = '255, 0, 60';   // Blood (Red)
+                    if (tile.leylineType === 'gold') rgb = '255, 215, 0';   // Gold (Yellow)
+                    if (tile.isCorrupted) rgb = '138, 43, 226';             // Corrupted (Purple)
+
+                    ctx.fillStyle = `rgba(${rgb}, ${0.05 + (pulse * 0.15)})`;
                     ctx.fillRect(tile.gridX*TILE_SIZE, tile.gridY*TILE_SIZE, TILE_SIZE, TILE_SIZE);
                 }
             });
