@@ -578,7 +578,7 @@ window.setTool = (t) => {
                         if (b.type === 'tether' || b.type === 'flesh_vat') return true; 
                         if (w.type === 'gold' && b.type === 'purifier') return true;
                         if (w.type === 'void' && b.type === 'gilder') return true;
-                        if (['void', 'blood', 'gold', 'soul'].includes(w.type) && b.type === 'altar') return true;
+                       if (['void', 'blood', 'gold'].includes(w.type) && b.type === 'altar' && (b.inventory[w.type] || 0) < 1) return true;
                         if (b.type === 'splitter' && !w.hasSplit) return true;
                         if (w.type === 'blood' && b.type === 'vein_splitter' && !w.hasSplit) return true;
                         if (b.type === 'accelerator' && w.speedMult === 1) return true;
