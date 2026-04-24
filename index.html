@@ -1,3 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Occult Factory: Descent</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #020204; font-family: 'Courier New', Courier, monospace; color: #fff; user-select: none; }
+        canvas { display: block; }
+        
+        #ui { position: absolute; top: 20px; left: 20px; z-index: 10; pointer-events: none; display: flex; flex-direction: column; gap: 20px; }
+        .panel { background: rgba(8, 8, 12, 0.85); border: 1px solid #223; border-top: 3px solid #bc13fe; padding: 15px 20px; box-shadow: 0 4px 30px rgba(188, 19, 254, 0.15); pointer-events: auto; backdrop-filter: blur(10px); min-width: 200px; }
+        h2 { margin: 0 0 10px 0; font-size: 1.2rem; color: #fff; text-transform: uppercase; letter-spacing: 2px;}
+        .stat { font-size: 1.1rem; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+        
+        #toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; }
+        button { background: #111; border: 1px solid #bc13fe; color: #fff; padding: 8px 12px; cursor: pointer; font-family: inherit; font-weight: bold; text-transform: uppercase; transition: 0.2s; }
+        button:hover { background: #bc13fe; color: #000; }
+        button.active { background: #fff; color: #000; border-color: #fff; }
+        
+        #notifications { position: absolute; top: 20px; right: 20px; z-index: 20; pointer-events: none; display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
+        .notification { background: rgba(200, 0, 0, 0.8); color: white; padding: 10px 20px; border-left: 4px solid #ff0000; animation: fadeout 3s forwards; }
+        @keyframes fadeout { 0% { opacity: 1; transform: translateX(20px); } 10% { transform: translateX(0); } 80% { opacity: 1; } 100% { opacity: 0; } }
+    </style>
+</head>
+<body>
+
+<div id="ui">
+    <div class="panel">
+        <h2>Maw Status</h2>
+        <div class="stat" id="wave-ui">Wave: 1</div>
+        <div class="stat" id="quota-ui">Quota: 0 / 100</div>
+        <div class="stat" id="essence-ui">Total Essence: 0</div>
+        <div class="stat" id="money-ui">Ash (Money): 500</div>
+    </div>
+    <div class="panel">
+        <h2>Construct</h2>
+        <div id="toolbar">
+            </div>
+        <div style="margin-top: 15px; border-top: 1px solid #334; padding-top: 15px;">
+            <button id="tool-sell">Sell / Destroy</button>
+        </div>
+    </div>
+</div>
+
+<div id="notifications"></div>
+
+<canvas id="gameCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Static canvas for drawing the grid/background efficiently
+    const staticCanvas = document.createElement('canvas');
+    const staticCtx = staticCanvas.getContext('2d');
+
+    // Make canvas fill the screen
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    staticCanvas.width = canvas.width;
+    staticCanvas.height = canvas.height;
+
+    // Handle Window Resizing
+    window.addEventListener('resize', () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        staticCanvas.width = canvas.width;
+        staticCanvas.height = canvas.height;
+        initMap(); // Re-draw map if the window changes
+    });
 <script>
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
