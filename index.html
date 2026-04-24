@@ -285,7 +285,7 @@
             runStats.greedMult = 1.0 + (metaState.upgrades.greedStart * 0.1);
             let vaultBonus = metaState.upgrades.vaults * 100;
             
-            if (sect === 'alchemists') { startingFunds = 500 + vaultBonus; state.unlockedBlueprints = ['aether_pump', 'gilder']; } 
+            if (sect === 'alchemists') { startingFunds = 500 + vaultBonus; state.unlockedBlueprints = ['purifier', 'aether_pump']; } 
             else if (sect === 'bloodbound') { startingFunds = 800 + vaultBonus; state.unlockedBlueprints = ['siphon', 'vein_splitter']; } 
             else if (sect === 'machinists') { startingFunds = 600 + vaultBonus; state.unlockedBlueprints = ['quantum_bore', 'accelerator']; }
             else if (sect === 'gravekeepers') { startingFunds = 400 + vaultBonus; state.unlockedBlueprints = ['soul_well', 'tether']; }
