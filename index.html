@@ -435,7 +435,7 @@ window.setTool = (t) => {
 
         // --- DRAFT & PROGRESSION ---
         function triggerDraft() {
-            state.paused = true; let profit = Math.max(0, state.money - startingFunds); runStats.greedMult += (profit / 100) * 0.05;
+            state.paused = true;
             let ashEarned = state.wave * 5; metaState.voidAsh += ashEarned; saveMetaState();
 
             document.getElementById('draft-overlay').style.display = 'flex';
@@ -461,7 +461,26 @@ window.setTool = (t) => {
             }
         }
 
-        function endDraft() { document.getElementById('draft-overlay').style.display = 'none'; state.wave++; state.quota = Math.floor(state.quota * 1.5); state.essence = 0; updateUIStats(); state.paused = false; }
+        function endDraft() { 
+            document.getElementById('draft-overlay').style.display = 'none'; 
+            
+            // Advance the wave and increase the quota
+            state.wave++; 
+            state.quota = Math.floor(state.quota * 1.5); 
+            state.essence = 0; 
+            
+            // --- THE NEW RESET LOGIC ---
+            state.money = startingFunds; // Reset money back to your starting amount
+            state.buildings = [];        // Wipe all placed buildings
+            state.workers = [];          // Clear all active wisps
+            state.map = new Map();       // Clear the old grid data
+            
+            initMap();                   // Generate a brand new map and spawn a new Maw
+            // ---------------------------
+
+            updateUIStats(); 
+            state.paused = false; 
+        }
 
         // --- GAME UPDATE LOOP ---
         function update() {
