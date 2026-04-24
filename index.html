@@ -389,7 +389,7 @@ window.setTool = (t) => {
                 b.isIgnited = true; 
                 let bonusLife = metaState.upgrades.casingDurability * 50;
                 
-                if (state.sect === 'alchemists') { b.life = 900 + bonusLife; b.speedMod = 2; showNotification("AURA OF PURITY ACTIVE!"); }
+                if (state.sect === 'alchemists') { b.life = 1500 + bonusLife; b.speedMod = 1.5; showNotification("PHILOSOPHER'S STATE ACTIVE!"); }
                 else if (state.sect === 'bloodbound') { b.life = 300 + bonusLife; b.speedMod = 3; showNotification("BLOOD SACRIFICE TRIGGERED!"); }
                 else if (state.sect === 'machinists') { b.life = 450 + bonusLife; b.speedMod = 2.5; showNotification("CHAIN-REACTION INITIATED!"); }
                 else if (state.sect === 'gravekeepers') { b.life = 1200 + bonusLife; b.speedMod = 1; b.isPhantom = true; showNotification("SPECTRAL SHIFT: PHANTOM ROUTING!"); }
@@ -479,12 +479,17 @@ window.setTool = (t) => {
                 if (b.isIgnited) {
                     speedMult *= b.speedMod; b.life--; b.rot += 0.05;
 
-                    // Alchemist Aura
-                    if (state.sect === 'alchemists' && state.globalTime % 1 < 0.1) {
+// Alchemist Philosopher's State
+                    if (state.sect === 'alchemists') {
                         state.workers.forEach(w => {
-                            let dist = Math.hypot(w.x - b.cx, w.y - b.cy);
-                            if (w.type === 'gold' && dist < TILE_SIZE * 2) w.type = 'void';
-                            if (w.type === 'aether' && dist < TILE_SIZE * 2.5) { w.type = 'astral'; w.speedMult = 1.5; }
+                            if (w.type !== 'astral' && !w.consumed) {
+                                let dist = Math.hypot(w.x - b.cx, w.y - b.cy);
+                                if (dist < 18) {
+                                    w.type = 'astral';
+                                    w.speedMult = 1.5;
+                                    b.life -= 80; // Violently drain building life per conversion
+                                }
+                            }
                         });
                     }
 
