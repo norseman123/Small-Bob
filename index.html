@@ -359,6 +359,7 @@
             state.map.get(`${cX},${cY}`).occupied = true;
             state.buildings.push({ type: 'maw', x: cX * TILE_SIZE, y: cY * TILE_SIZE, cx: (cX * TILE_SIZE) + (TILE_SIZE / 2), cy: (cY * TILE_SIZE) + (TILE_SIZE / 2), isIgnited: false });
             renderStaticBackground(); state.buildingsChanged = true;
+        }
 
 window.setTool = (t) => {
             state.selectedTool = t;
