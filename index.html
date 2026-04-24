@@ -253,6 +253,7 @@
             purifier: { cost: 150, type: 'purifier', name: 'PURIFIER' },
             splitter: { cost: 300, type: 'splitter', name: 'SPLITTER' },
             altar: { cost: 750, type: 'altar', name: 'FUSION ALTAR' },
+            hyper_collider: { cost: 1500, type: 'hyper_collider', name: 'HYPER-COLLIDER' }, // Added!
             tether: { cost: 25, type: 'tether', name: 'TETHER' },
             compressor: { cost: 500, type: 'compressor', name: 'COMPRESSOR' },
             aether_shrine: { cost: 400, type: 'aether_shrine', name: 'AETHER SHRINE' },
@@ -266,6 +267,7 @@
             { id: 'build_purifier', type: 'Blueprint', name: 'PURIFIER', desc: 'Converts Gold to Void.', cost: 150, blueprintId: 'purifier' },
             { id: 'build_splitter', type: 'Blueprint', name: 'WISP SPLITTER', desc: 'Duplicates any Wisp.', cost: 300, blueprintId: 'splitter' },
             { id: 'build_altar', type: 'Blueprint', name: 'FUSION ALTAR', desc: 'Combines Wisps for powerful variants. Max 1.', cost: 750, blueprintId: 'altar' },
+            { id: 'build_collider', type: 'Blueprint', name: 'HYPER-COLLIDER', desc: 'Fuses Tier-2 wisps into apocalyptic power. Max 1.', cost: 1500, blueprintId: 'hyper_collider' }, // Added!
             { id: 'build_tether', type: 'Blueprint', name: 'ROUTING TETHER', desc: 'Forces wisps to path through it.', cost: 25, blueprintId: 'tether' },
             { id: 'build_compressor', type: 'Blueprint', name: 'COMPRESSOR', desc: 'Consumes 3 wisps to create 1 Dense wisp (5x value).', cost: 500, blueprintId: 'compressor' }
         ];
@@ -359,8 +361,9 @@
             state.map.get(`${cX},${cY}`).occupied = true;
             state.buildings.push({ type: 'maw', x: cX * TILE_SIZE, y: cY * TILE_SIZE, cx: (cX * TILE_SIZE) + (TILE_SIZE / 2), cy: (cY * TILE_SIZE) + (TILE_SIZE / 2), isIgnited: false });
             renderStaticBackground(); state.buildingsChanged = true;
+        }
 
-window.setTool = (t) => {
+        window.setTool = (t) => {
             state.selectedTool = t;
             document.querySelectorAll('.blueprint-btn').forEach(b => b.classList.remove('active'));
             if(document.getElementById(`btn-${t}`)) document.getElementById(`btn-${t}`).classList.add('active');
@@ -417,6 +420,7 @@ window.setTool = (t) => {
             const isExtractor = ['drill', 'siphon', 'aether_pump', 'quantum_bore', 'soul_well', 'aether_shrine', 'arc_furnace'].includes(state.selectedTool);
             if (isExtractor && !tile.isLeyline) { showNotification("EXTRACTORS REQUIRE LEYLINES!"); return; }
             if (state.selectedTool === 'altar' && state.buildings.some(bld => bld.type === 'altar')) { showNotification("ONLY ONE ALTAR ALLOWED!"); return; }
+            if (state.selectedTool === 'hyper_collider' && state.buildings.some(bld => bld.type === 'hyper_collider')) { showNotification("ONLY ONE HYPER-COLLIDER ALLOWED!"); return; }
 
             const cost = CATALOG[state.selectedTool].cost;
             if (state.money >= cost) {
@@ -460,9 +464,24 @@ window.setTool = (t) => {
             }
         }
 
-        function endDraft() { document.getElementById('draft-overlay').style.display = 'none'; state.wave++; state.quota = Math.floor(state.quota * 1.5); state.essence = 0; updateUIStats(); state.paused = false; }
+        function endDraft() { 
+            document.getElementById('draft-overlay').style.display = 'none'; 
+            state.wave++; 
+            state.quota = Math.floor(state.quota * 1.5); 
+            state.essence = 0; 
+            
+            // Hard Floor Reset
+            state.money = startingFunds; 
+            state.buildings = []; 
+            state.workers = []; 
+            state.map.clear();
+            
+            initMap();
+            updateUIStats();
+            state.paused = false; 
+        }
 
-        // --- GAME UPDATE LOOP ---
+        // --- GAME UPDATE LOOP (WITH ALTAR & HYPER-COLLIDER LOGIC) ---
         function update() {
             if (state.paused) return;
             state.globalTime += 0.05;
@@ -473,76 +492,16 @@ window.setTool = (t) => {
 
             for (let i = state.buildings.length - 1; i >= 0; i--) {
                 let b = state.buildings[i]; let speedMult = b.onCorrupted ? 2 : 1;
+                
                 b.rot += 0.02 * speedMult; 
                 
                 if (b.isIgnited) {
                     speedMult *= b.speedMod; b.life--; b.rot += 0.05;
 
-                    // Alchemist Aura
-                    if (state.sect === 'alchemists' && state.globalTime % 1 < 0.1) {
-                        state.workers.forEach(w => {
-                            let dist = Math.hypot(w.x - b.cx, w.y - b.cy);
-                            if (w.type === 'gold' && dist < TILE_SIZE * 2) w.type = 'void';
-                            if (w.type === 'aether' && dist < TILE_SIZE * 2.5) { w.type = 'astral'; w.speedMult = 1.5; }
-                        });
-                    }
-
-                    // Voidweaver Black Hole Pull
-                    if (b.isBlackHole) {
-                        b.rot += 0.15; // Spin faster
-                        state.workers.forEach(w => {
-                            let dist = Math.hypot(w.x - b.cx, w.y - b.cy);
-                            if (dist < TILE_SIZE * 3.5) {
-                                w.vx += (b.cx - w.x) * 0.06;
-                                w.vy += (b.cy - w.y) * 0.06;
-                                if (dist < 10 && !w.consumed) {
-                                    b.inventory[w.type] = (b.inventory[w.type] || 0) + 1;
-                                    w.consumed = true;
-                                }
-                            }
-                        });
-                        // Filter out consumed wisps
-                        state.workers = state.workers.filter(w => !w.consumed);
-                    }
-
                     if (b.life <= 0) {
-                        let tile = state.map.get(`${Math.floor(b.x/TILE_SIZE)},${Math.floor(b.y/TILE_SIZE)}`);
+                        let cX = Math.floor(b.x/TILE_SIZE); let cY = Math.floor(b.y/TILE_SIZE);
+                        let tile = state.map.get(`${cX},${cY}`);
                         if (tile) tile.occupied = false;
-                        
-                        // Bloodbound Explosion
-                        if (state.sect === 'bloodbound') {
-                            if (b.type === 'flesh_vat') {
-                                let count = Math.max(1, b.inventory.stored);
-                                for(let j=0; j<count; j++) state.workers.push({ x: b.cx, y: b.cy, vx: (Math.random()-0.5)*3, vy: (Math.random()-0.5)*3, trail: [], type: 'ichor', hasSplit: false, speedMult: 1.2, target: null, lastVisited: null });
-                            } else {
-                                for(let j=0; j<3; j++) state.workers.push({ x: b.cx, y: b.cy, vx: (Math.random()-0.5)*2, vy: (Math.random()-0.5)*2, trail: [], type: 'blood', hasSplit: false, speedMult: 1, target: null, lastVisited: null });
-                            }
-                        }
-                        
-                        // Machinist Chain Reaction
-                        if (state.sect === 'machinists') {
-                            let bonusLife = metaState.upgrades.casingDurability * 50;
-                            state.buildings.forEach(otherB => {
-                                if (!otherB.isIgnited && otherB.type !== 'maw' && Math.hypot(otherB.cx - b.cx, otherB.cy - b.cy) < TILE_SIZE * 1.5) {
-                                    otherB.isIgnited = true; otherB.life = 450 + bonusLife; otherB.speedMod = 2.5;
-                                    if (otherB.type === 'arc_furnace') { for(let k=0; k<3; k++) state.workers.push({ x: otherB.cx, y: otherB.cy, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4, trail: [], type: 'plasma', hasSplit: false, speedMult: 2.5, target: null, lastVisited: null }); }
-                                }
-                            });
-                        }
-
-                        // Voidweaver Singularity Burst
-                        if (b.isBlackHole) {
-                            let voidConsumed = b.inventory.void || 0;
-                            let totalConsumed = 0;
-                            for (let key in b.inventory) { if(key !== 'stored') totalConsumed += b.inventory[key]; }
-                            
-                            let abyssalCount = Math.floor(voidConsumed / 2);
-                            let denseCount = Math.floor((totalConsumed - voidConsumed) / 3);
-                            
-                            for(let j=0; j<abyssalCount; j++) state.workers.push({ x: b.cx, y: b.cy, vx: (Math.random()-0.5)*6, vy: (Math.random()-0.5)*6, trail: [], type: 'abyssal', hasSplit: false, speedMult: 1.5, target: null, lastVisited: null });
-                            for(let j=0; j<denseCount; j++) state.workers.push({ x: b.cx, y: b.cy, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4, trail: [], type: 'dense', hasSplit: false, speedMult: 0.8, target: null, lastVisited: null });
-                        }
-
                         state.buildings.splice(i, 1); state.buildingsChanged = true; continue;
                     }
                 }
@@ -559,20 +518,23 @@ window.setTool = (t) => {
 
             let newWorkers = [];
             
-            // Wisps
+            // Wisps logic
             for (let i = state.workers.length - 1; i >= 0; i--) {
                 let w = state.workers[i];
                 if (!w.target || !state.buildings.includes(w.target) || state.buildingsChanged) {
                     w.target = targetMaw;
                     let validInteractables = interactables.filter(b => {
-                        // FIX: Do not target the tether/phantom we just visited
-                        if ((b.type === 'tether' || b.isPhantom) && w.lastVisited === b) return false;
-                        
-                        if (b.isPhantom) return true; // Phantoms attract wisps to route them
+                        if (b.type === 'tether' && w.lastVisited === b) return false;
                         if (b.type === 'tether' || b.type === 'flesh_vat') return true; 
                         if (w.type === 'gold' && b.type === 'purifier') return true;
                         if (w.type === 'void' && b.type === 'gilder') return true;
-                        if (['void', 'blood', 'gold', 'soul'].includes(w.type) && b.type === 'altar') return true;
+                        
+                        // NEW ALTAR INTAKE (Base + Souls + Compress + Astral)
+                        if (['void', 'blood', 'gold', 'soul', 'compressed', 'astral'].includes(w.type) && b.type === 'altar' && (b.inventory[w.type] || 0) < 1) return true;
+                        
+                        // NEW HYPER-COLLIDER INTAKE
+                        if (['abyssal', 'crimson', 'phantom', 'sanguine'].includes(w.type) && b.type === 'hyper_collider' && (b.inventory[w.type] || 0) < 1) return true;
+                        
                         if (b.type === 'splitter' && !w.hasSplit) return true;
                         if (w.type === 'blood' && b.type === 'vein_splitter' && !w.hasSplit) return true;
                         if (b.type === 'accelerator' && w.speedMult === 1) return true;
@@ -594,21 +556,36 @@ window.setTool = (t) => {
 
                 if (dist < 15) {
                     if (w.target.type === 'maw') {
-                        let val = w.type === 'dense' ? 5 : (w.type === 'abyssal' ? 4 : (w.type === 'crimson' ? 10 : (w.type === 'astral' ? 25 : (w.type === 'ichor' ? 15 : (w.type === 'plasma' ? 3 : 1)))));
-                        if (['gold', 'blood', 'dense', 'abyssal', 'crimson', 'eclipse', 'soul', 'astral', 'ichor', 'plasma'].includes(w.type)) {
-                            let baseCash = (w.type === 'soul') ? 5 : (w.type === 'aether' ? 0 : BASE_SELL_VALUE);
-                            state.money += baseCash * val * runStats.greedMult * (w.type === 'blood' ? 2.5 : 1);
+                        // NEW APOCALYPSE WISP MAW PAYOUT (Screen Wipe)
+                        if (w.type === 'apocalypse') {
+                            let totalBonusMoney = 0; let totalBonusEssence = 0; let destroyedCount = 0;
+                            state.workers.forEach(otherWisp => {
+                                if (!otherWisp.consumed && otherWisp !== w) {
+                                    totalBonusMoney += 150 * runStats.greedMult; totalBonusEssence += 5;
+                                    otherWisp.consumed = true; destroyedCount++;
+                                }
+                            });
+                            state.money += totalBonusMoney; state.essence += totalBonusEssence;
+                            showNotification(`APOCALYPSE! ${destroyedCount} wisps consumed for $${Math.floor(totalBonusMoney)}!`);
+                        } else {
+                            // Standard Payouts
+                            let val = w.type === 'dense' ? 5 : (w.type === 'abyssal' ? 4 : (w.type === 'crimson' ? 10 : (w.type === 'astral' ? 25 : (w.type === 'ichor' ? 15 : (w.type === 'plasma' ? 3 : 1)))));
+                            if (['gold', 'blood', 'dense', 'abyssal', 'crimson', 'eclipse', 'soul', 'astral', 'ichor', 'plasma', 'sanguine', 'radiant', 'diamond', 'cosmic', 'poltergeist'].includes(w.type)) {
+                                let baseCash = (w.type === 'soul') ? 5 : (w.type === 'aether' ? 0 : BASE_SELL_VALUE);
+                                if (w.type === 'radiant') state.money += 250;
+                                else state.money += baseCash * val * runStats.greedMult * (w.type === 'blood' ? 2.5 : 1);
+                            }
+                            if (['void', 'dense', 'abyssal', 'eclipse', 'soul', 'aether', 'astral', 'ichor', 'plasma', 'phantom', 'singularity', 'ethereal'].includes(w.type) || (w.type === 'blood' && state.sect === 'bloodbound')) {
+                                let essenceVal = (w.type === 'soul') ? 2 : (w.type === 'phantom' ? 5 : (w.type === 'singularity' ? 15 : (w.type === 'astral' ? 8 : (w.type === 'ichor' ? 5 : 1))));
+                                state.essence += runStats.wispCapacity * essenceVal * val * (state.sect === 'alchemists' && w.type === 'void' ? 3 : 1);
+                            }
+                            if (w.type === 'eclipse') { runStats.greedMult += 0.02; }
                         }
-                        if (['void', 'dense', 'abyssal', 'eclipse', 'soul', 'aether', 'astral', 'ichor', 'plasma'].includes(w.type) || (w.type === 'blood' && state.sect === 'bloodbound')) {
-                            let essenceVal = (w.type === 'soul') ? 2 : (w.type === 'aether' ? 3 : (w.type === 'astral' ? 8 : (w.type === 'ichor' ? 5 : 1)));
-                            state.essence += runStats.wispCapacity * essenceVal * val * (state.sect === 'alchemists' && w.type === 'void' ? 3 : 1);
-                        }
-                        if (w.type === 'eclipse') { runStats.greedMult += 0.02; }
+                        
                         if (state.essence >= state.quota && !state.paused) triggerDraft();
                         state.workers.splice(i, 1); updateUIStats(); continue;
                     } 
-                    // FIX: Set lastVisited when touching a tether or phantom
-                    else if (w.target.type === 'tether' || w.target.isPhantom) { w.lastVisited = w.target; w.target = null; }
+                    else if (w.target.type === 'tether') { w.lastVisited = w.target; w.target = null; }
                     else if (w.target.type === 'purifier') { w.type = 'void'; w.lastVisited = w.target; w.target = null; } 
                     else if (w.target.type === 'gilder') { w.type = 'gold'; w.lastVisited = w.target; w.target = null; } 
                     else if (w.target.type === 'flesh_vat') { w.target.inventory.stored++; state.workers.splice(i, 1); continue; }
@@ -616,12 +593,28 @@ window.setTool = (t) => {
                     else if (w.target.type === 'vein_splitter' && w.type === 'blood' && !w.hasSplit) { w.hasSplit = true; w.vx *= -1; w.lastVisited = w.target; w.target = null; newWorkers.push({...w, trail: [], vx: -w.vx, vy: -w.vy, target: null}); w.target.life = w.target.isIgnited ? w.target.life : 10; }
                     else if (w.target.type === 'accelerator') { w.speedMult = 2; w.lastVisited = w.target; w.target = null; }
                     else if (w.target.type === 'compressor') { w.target.inventory.stored++; state.workers.splice(i, 1); if (w.target.inventory.stored >= 3) { w.target.inventory.stored = 0; newWorkers.push({ x: w.target.cx, y: w.target.cy, vx: 0, vy: 0, trail: [], type: 'dense', hasSplit: false, speedMult: 0.8, target: null, lastVisited: null }); } continue; }
-                    else if (w.target.type === 'altar') {
+                    
+                    // --- NEW FULL ALTAR & HYPER COLLIDER FUSIONS ---
+                    else if (w.target.type === 'altar' || w.target.type === 'hyper_collider') {
                         w.target.inventory[w.type] = (w.target.inventory[w.type] || 0) + 1; state.workers.splice(i, 1);
                         let inv = w.target.inventory; let spawnType = null;
-                        if (inv.void >= 1 && inv.blood >= 1) { inv.void--; inv.blood--; spawnType = 'abyssal'; } 
-                        else if (inv.gold >= 1 && inv.blood >= 1) { inv.gold--; inv.blood--; spawnType = 'crimson'; } 
-                        else if (inv.gold >= 1 && inv.void >= 1) { inv.gold--; inv.void--; spawnType = 'eclipse'; }
+                        
+                        if (w.target.type === 'altar') {
+                            if (inv.void >= 1 && inv.blood >= 1) { inv.void--; inv.blood--; spawnType = 'abyssal'; } 
+                            else if (inv.gold >= 1 && inv.blood >= 1) { inv.gold--; inv.blood--; spawnType = 'crimson'; } 
+                            else if (inv.gold >= 1 && inv.void >= 1) { inv.gold--; inv.void--; spawnType = 'eclipse'; }
+                            else if (inv.soul >= 1 && inv.void >= 1) { inv.soul--; inv.void--; spawnType = 'phantom'; }
+                            else if (inv.soul >= 1 && inv.blood >= 1) { inv.soul--; inv.blood--; spawnType = 'sanguine'; }
+                            else if (inv.soul >= 1 && inv.gold >= 1) { inv.soul--; inv.gold--; spawnType = 'radiant'; }
+                            else if (inv.compressed >= 1 && inv.void >= 1) { inv.compressed--; inv.void--; spawnType = 'singularity'; }
+                            else if (inv.compressed >= 1 && inv.gold >= 1) { inv.compressed--; inv.gold--; spawnType = 'diamond'; }
+                            else if (inv.astral >= 1 && inv.blood >= 1) { inv.astral--; inv.blood--; spawnType = 'cosmic'; }
+                            else if (inv.astral >= 1 && inv.soul >= 1) { inv.astral--; inv.soul--; spawnType = 'ethereal'; }
+                        } else if (w.target.type === 'hyper_collider') {
+                            if (inv.abyssal >= 1 && inv.crimson >= 1) { inv.abyssal--; inv.crimson--; spawnType = 'apocalypse'; }
+                            else if (inv.phantom >= 1 && inv.sanguine >= 1) { inv.phantom--; inv.sanguine--; spawnType = 'poltergeist'; }
+                        }
+
                         if (spawnType) { newWorkers.push({ x: w.target.cx, y: w.target.cy, vx: 0, vy: 0, trail: [], type: spawnType, hasSplit: false, speedMult: 1.2, target: null, lastVisited: null }); } continue; 
                     }
                 }
@@ -629,58 +622,26 @@ window.setTool = (t) => {
                 let speed = runStats.wispSpeed * w.speedMult;
                 let dvx = (dx/dist) * speed; let dvy = (dy/dist) * speed;
                 
-                // If the target is a phantom, obstacles don't bounce them (they glide through walls to reach it)
-                if (!w.target || !w.target.isPhantom) {
-                    let tile = state.map.get(`${Math.floor((w.x + dvx*6)/TILE_SIZE)},${Math.floor((w.y + dvy*6)/TILE_SIZE)}`);
-                    if (tile && tile.isObstacle) { let t = dvx; dvx = -dvy; dvy = t; }
-                }
+                let tile = state.map.get(`${Math.floor((w.x + dvx*6)/TILE_SIZE)},${Math.floor((w.y + dvy*6)/TILE_SIZE)}`);
+                if (tile && tile.isObstacle) { let t = dvx; dvx = -dvy; dvy = t; }
 
                 w.vx += (dvx - w.vx) * runStats.wispAgility; w.vy += (dvy - w.vy) * runStats.wispAgility;
                 w.x += w.vx; w.y += w.vy; w.trail.push({x: w.x, y: w.y});
                 if (w.trail.length > 8) w.trail.shift();
             }
-            state.workers.push(...newWorkers); state.buildingsChanged = false;
+            state.workers.push(...newWorkers);
+            state.workers = state.workers.filter(w => !w.consumed);
+            state.buildingsChanged = false;
         }
 
-        // --- GRAPHICS UPGRADE: RENDERING ENGINE ---
+        // --- GRAPHICS & RENDERING ---
         function drawBuildingShape(b) {
             ctx.save();
             ctx.translate(b.cx, b.cy);
             
-            // Gravekeeper Phantom Render
-            if (b.isPhantom) {
-                ctx.globalAlpha = 0.4 + (Math.sin(state.globalTime * 3) * 0.2); // Ghostly pulse
-                ctx.shadowBlur = 20;
-                ctx.shadowColor = '#00f2ff';
-                ctx.strokeStyle = '#00f2ff';
-                ctx.beginPath(); ctx.arc(0, 0, TILE_SIZE/2.5, 0, Math.PI*2); ctx.stroke();
-                ctx.rotate(b.rot);
-                ctx.strokeRect(-10, -10, 20, 20);
-                ctx.restore();
-                return;
-            }
-
-            // Voidweaver Black Hole Render
-            if (b.isBlackHole) {
-                ctx.globalAlpha = 1.0;
-                ctx.shadowBlur = 30;
-                ctx.shadowColor = '#8a2be2';
-                ctx.fillStyle = '#000';
-                ctx.beginPath(); ctx.arc(0, 0, TILE_SIZE/3, 0, Math.PI*2); ctx.fill();
-                ctx.strokeStyle = '#bc13fe';
-                ctx.lineWidth = 2;
-                ctx.rotate(-b.rot * 2);
-                for(let i=0; i<4; i++) {
-                    ctx.beginPath(); ctx.arc(0, 0, TILE_SIZE/2, i * Math.PI/2, (i * Math.PI/2) + Math.PI/4); ctx.stroke();
-                }
-                ctx.restore();
-                return;
-            }
-
             ctx.lineWidth = 2;
             ctx.shadowBlur = b.isIgnited ? 25 : 10;
             ctx.shadowColor = b.isIgnited ? '#ff2200' : '#112233';
-
             ctx.fillStyle = b.isIgnited ? '#3a0808' : '#0d0d14';
             ctx.strokeStyle = b.isIgnited ? '#ff4400' : '#334455';
             ctx.fillRect(-TILE_SIZE/2 + 3, -TILE_SIZE/2 + 3, TILE_SIZE - 6, TILE_SIZE - 6);
@@ -696,20 +657,22 @@ window.setTool = (t) => {
             } 
             else if (['drill', 'quantum_bore', 'siphon'].includes(b.type)) {
                 ctx.shadowColor = b.type === 'drill' ? '#ffd700' : (b.type === 'siphon' ? '#ff003c' : '#ffffff');
-                ctx.strokeStyle = ctx.shadowColor;
-                ctx.rotate(b.rot);
+                ctx.strokeStyle = ctx.shadowColor; ctx.rotate(b.rot);
                 ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(10, 0); ctx.lineTo(0, 10); ctx.lineTo(-10, 0); ctx.closePath(); ctx.stroke();
             }
             else if (['purifier', 'gilder', 'compressor'].includes(b.type)) {
                 ctx.shadowColor = b.type === 'purifier' ? '#8a2be2' : (b.type === 'gilder' ? '#ffd700' : '#888');
                 ctx.strokeStyle = ctx.shadowColor;
-                ctx.strokeRect(-10, -10, 20, 20);
-                ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI*2); ctx.stroke();
+                ctx.strokeRect(-10, -10, 20, 20); ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI*2); ctx.stroke();
             }
             else if (b.type === 'tether' || b.type === 'accelerator') {
                 ctx.shadowColor = '#00f2ff'; ctx.strokeStyle = ctx.shadowColor;
                 ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.stroke();
                 ctx.beginPath(); ctx.moveTo(-10, 0); ctx.lineTo(10, 0); ctx.moveTo(0, -10); ctx.lineTo(0, 10); ctx.stroke();
+            }
+            else if (b.type === 'hyper_collider') {
+                ctx.shadowColor = '#ff4500'; ctx.strokeStyle = '#ff4500';
+                ctx.rotate(b.rot * 2); ctx.strokeRect(-12, -12, 24, 24); ctx.rotate(Math.PI/4); ctx.strokeRect(-12, -12, 24, 24);
             }
             else {
                 ctx.shadowColor = '#fff'; ctx.strokeStyle = '#fff';
@@ -735,8 +698,7 @@ window.setTool = (t) => {
 
             state.buildings.forEach(b => drawBuildingShape(b));
 
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round'; ctx.lineJoin = 'round';
             
             state.workers.forEach(w => {
                 let wColor = '#fff';
@@ -746,12 +708,19 @@ window.setTool = (t) => {
                 else if (w.type === 'ichor') wColor = '#88001b'; else if (w.type === 'astral') wColor = '#ffffff';
                 else if (w.type === 'dense') wColor = '#ffaa00'; else if (w.type === 'abyssal') wColor = '#4a0080';
                 else if (w.type === 'crimson') wColor = '#ff0000'; else if (w.type === 'eclipse') wColor = '#555555';
+                
+                // NEW COLORS FOR ADVANCED FUSIONS
+                else if (w.type === 'phantom') wColor = '#aaccff'; else if (w.type === 'sanguine') wColor = '#ff007f';
+                else if (w.type === 'radiant') wColor = '#ffea00'; else if (w.type === 'singularity') wColor = '#000000';
+                else if (w.type === 'diamond') wColor = '#00ffff'; else if (w.type === 'cosmic') wColor = '#8a2be2';
+                else if (w.type === 'ethereal') wColor = '#00fa9a'; else if (w.type === 'apocalypse') wColor = '#ff4500';
+                else if (w.type === 'poltergeist') wColor = '#adff2f';
 
                 if(w.trail.length > 1) {
                     ctx.shadowBlur = 15; ctx.shadowColor = wColor; ctx.strokeStyle = wColor;
                     ctx.beginPath();
                     for(let i=0; i<w.trail.length; i++) {
-                        ctx.lineWidth = (i / w.trail.length) * (['ichor', 'dense', 'abyssal'].includes(w.type) ? 6 : 4);
+                        ctx.lineWidth = (i / w.trail.length) * (['ichor', 'dense', 'abyssal', 'apocalypse', 'singularity'].includes(w.type) ? 6 : 4);
                         ctx.globalAlpha = (i / w.trail.length) * 0.8;
                         if(i===0) ctx.moveTo(w.trail[i].x, w.trail[i].y);
                         else ctx.lineTo(w.trail[i].x, w.trail[i].y);
@@ -759,11 +728,10 @@ window.setTool = (t) => {
                     ctx.stroke();
                 }
                 
-                ctx.globalAlpha = 1.0;
-                ctx.shadowBlur = 20; ctx.shadowColor = wColor;
+                ctx.globalAlpha = 1.0; ctx.shadowBlur = 20; ctx.shadowColor = wColor;
                 ctx.fillStyle = '#fff'; 
                 ctx.beginPath();
-                ctx.arc(w.x, w.y, ['ichor', 'dense', 'abyssal'].includes(w.type) ? 5 : 3, 0, Math.PI * 2);
+                ctx.arc(w.x, w.y, ['ichor', 'dense', 'abyssal', 'apocalypse', 'singularity'].includes(w.type) ? 5 : 3, 0, Math.PI * 2);
                 ctx.fill();
             });
             ctx.shadowBlur = 0;
@@ -776,4 +744,3 @@ window.setTool = (t) => {
     </script>
 </body>
 </html>
-
